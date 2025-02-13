@@ -112,7 +112,7 @@ class MyTelegramBot(
             }
             val newTeam = teamService.createTeam(userMessage, chatId)
 
-            sendMessage(chatId, "Команда '${newTeam.name}' успешно зарегистрирована! Участники могут присоединиться через приложение")
+            sendMessage(chatId, "Команда '${newTeam.name}' успешно зарегистрирована! Участники могут присоединиться через приложение. Код приглашения: ${newTeam.inviteCode}")
             userWaitingForTeamName.remove(chatId)
         } else {
             val user = userService.getUserByTelegramId(chatId)
