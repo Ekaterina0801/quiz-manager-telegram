@@ -1,1 +1,29 @@
+version: '3.8'
+
 services:
+  springboot-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: springboot-app
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+    environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_BOT_USERNAME=${TELEGRAM_BOT_USERNAME}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - TELEGRAM_CHAT_ID={TELEGRAM_CHAT_ID}
+      - TELEGRAM_NOTIFICATIONS_ENABLED=true
+    networks:
+      - app-network
+    env_file:
+      - .env
+
+
+networks:
+  app-network:
+    driver: bridge
