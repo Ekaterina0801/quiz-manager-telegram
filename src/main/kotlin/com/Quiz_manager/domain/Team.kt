@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.ObjectIdGenerators
 import jakarta.persistence.*
 
 @Entity
-@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator::class, property = "id")
+//@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator::class, property = "id")
 data class Team(
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long,
