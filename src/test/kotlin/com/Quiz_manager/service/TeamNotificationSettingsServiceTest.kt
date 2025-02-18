@@ -2,7 +2,7 @@ package com.Quiz_manager.service
 
 import com.Quiz_manager.domain.Team
 import com.Quiz_manager.domain.TeamNotificationSettings
-import com.Quiz_manager.dto.TeamNotificationSettingsDTO
+import com.Quiz_manager.dto.request.TeamNotificationSettingsCreationDto
 import com.Quiz_manager.mapper.toEntity
 import com.Quiz_manager.repository.TeamNotificationSettingsRepository
 import com.Quiz_manager.repository.TeamRepository
@@ -34,7 +34,7 @@ class TeamNotificationSettingsServiceTest {
         )
 
         `when`(teamRepository.findById(teamId)).thenReturn(Optional.of(team))
-        `when`(teamNotificationSettingsRepository.findByTeam(team)).thenReturn(settings)
+        `when`(teamNotificationSettingsRepository.findByTeamId(teamId)).thenReturn(settings)
 
 
         val result = service.getSettingsForTeam(teamId)
@@ -45,7 +45,7 @@ class TeamNotificationSettingsServiceTest {
         assertEquals(24, result.registrationReminderHoursBeforeEvent)
 
         verify(teamRepository).findById(teamId)
-        verify(teamNotificationSettingsRepository).findByTeam(team)
+        verify(teamNotificationSettingsRepository).findByTeamId(teamId)
     }
 
     @Test
@@ -64,7 +64,7 @@ class TeamNotificationSettingsServiceTest {
     fun `should create or update settings successfully`() {
         val teamId = 1L
         val team = Team(id = teamId, name = "Test Team", inviteCode = "ABC123", chatId = "123456")
-        val settingsDTO = TeamNotificationSettingsDTO(
+        val settingsDTO = TeamNotificationSettingsCreationDto(
             registrationNotificationEnabled = true,
             unregisterNotificationEnabled = false,
             eventReminderEnabled = true,
@@ -74,7 +74,7 @@ class TeamNotificationSettingsServiceTest {
         val updatedSettings = settingsDTO.toEntity(team)
 
         `when`(teamRepository.findById(teamId)).thenReturn(Optional.of(team))
-        `when`(teamNotificationSettingsRepository.findByTeam(team)).thenReturn(null)
+        `when`(teamNotificationSettingsRepository.findByTeamId(teamId)).thenReturn(null)
         `when`(teamNotificationSettingsRepository.save(any(TeamNotificationSettings::class.java))).thenReturn(updatedSettings)
 
 
@@ -100,7 +100,7 @@ class TeamNotificationSettingsServiceTest {
             eventReminderEnabled = false,
             registrationReminderHoursBeforeEvent = 24
         )
-        val settingsDTO = TeamNotificationSettingsDTO(
+        val settingsDTO = TeamNotificationSettingsCreationDto(
             registrationNotificationEnabled = true,
             unregisterNotificationEnabled = true,
             eventReminderEnabled = true,
@@ -109,7 +109,7 @@ class TeamNotificationSettingsServiceTest {
         )
 
         `when`(teamRepository.findById(teamId)).thenReturn(Optional.of(team))
-        `when`(teamNotificationSettingsRepository.findByTeam(team)).thenReturn(existingSettings)
+        `when`(teamNotificationSettingsRepository.findByTeamId(teamId)).thenReturn(existingSettings)
 
         val result = service.createOrUpdateSettings(teamId, settingsDTO)
 
@@ -135,7 +135,7 @@ class TeamNotificationSettingsServiceTest {
         )
 
         `when`(teamRepository.findById(teamId)).thenReturn(Optional.of(team))
-        `when`(teamNotificationSettingsRepository.findByTeam(team)).thenReturn(settings)
+        `when`(teamNotificationSettingsRepository.findByTeamId(teamId)).thenReturn(settings)
 
 
         service.deleteSettingsForTeam(teamId)
@@ -163,7 +163,7 @@ class TeamNotificationSettingsServiceTest {
         val team = Team(id = teamId, name = "Test Team", inviteCode = "ABC123", chatId = "123456")
 
         `when`(teamRepository.findById(teamId)).thenReturn(Optional.of(team))
-        `when`(teamNotificationSettingsRepository.findByTeam(team)).thenReturn(null)
+        `when`(teamNotificationSettingsRepository.findByTeamId(teamId)).thenReturn(null)
 
         val exception = assertThrows<EntityNotFoundException> {
             service.deleteSettingsForTeam(teamId)

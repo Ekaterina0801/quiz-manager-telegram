@@ -1,7 +1,13 @@
 package com.Quiz_manager.controller
 
 import com.Quiz_manager.domain.*
+import com.Quiz_manager.dto.request.TeamNotificationSettingsCreationDto
+import com.Quiz_manager.dto.response.EventResponseDto
+import com.Quiz_manager.dto.response.TeamMembershipResponseDto
+import com.Quiz_manager.dto.response.TeamResponseDto
+import com.Quiz_manager.dto.response.UserResponseDto
 import com.Quiz_manager.enums.Role
+import com.Quiz_manager.mapper.toEntity
 import com.Quiz_manager.service.EventService
 import com.Quiz_manager.service.TeamService
 import com.Quiz_manager.service.TelegramService
@@ -26,12 +32,12 @@ class TeamController(private val teamService: TeamService, private val userServi
     fun createTeam(
         @RequestParam teamName: String,
         @RequestParam chatId: String
-    ): ResponseEntity<Team> {
+    ): ResponseEntity<TeamResponseDto> {
         return ResponseEntity.ok(teamService.createTeam(teamName, chatId))
     }
 
     @GetMapping
-    fun getTeams(): ResponseEntity<List<Team>> {
+    fun getTeams(): ResponseEntity<List<TeamResponseDto>> {
         return ResponseEntity.ok(teamService.getTeams())
     }
 
@@ -42,7 +48,7 @@ class TeamController(private val teamService: TeamService, private val userServi
      * @return команда.
      */
     @GetMapping("/{teamId}")
-    fun getTeamById(@PathVariable teamId: Long): ResponseEntity<Team> {
+    fun getTeamById(@PathVariable teamId: Long): ResponseEntity<TeamResponseDto> {
         return ResponseEntity.ok(teamService.getTeamById(teamId))
     }
 
@@ -53,7 +59,7 @@ class TeamController(private val teamService: TeamService, private val userServi
      * @return команда.
      */
     @GetMapping("/invite/{inviteCode}")
-    fun getTeamByInviteCode(@PathVariable inviteCode: String): ResponseEntity<Team> {
+    fun getTeamByInviteCode(@PathVariable inviteCode: String): ResponseEntity<TeamResponseDto> {
         val team = teamService.getTeamByCode(inviteCode)
         return if (team != null) {
             ResponseEntity.ok(team)
@@ -75,7 +81,7 @@ class TeamController(private val teamService: TeamService, private val userServi
         @PathVariable teamId: Long,
         @RequestParam userId: String,
         @RequestParam role: Role
-    ): ResponseEntity<TeamMembership> {
+    ): ResponseEntity<TeamMembershipResponseDto> {
         return ResponseEntity.ok(telegramService.handleAddUserToTeam(userId, teamId, role))
     }
 
@@ -90,9 +96,7 @@ class TeamController(private val teamService: TeamService, private val userServi
         @PathVariable teamId: Long,
         @RequestParam userId: Long
     ): ResponseEntity<String> {
-        val team = teamService.getTeamById(teamId)
-        val user = userService.getUserById(userId)
-        teamService.removeUserFromTeam(user, team)
+        teamService.removeUserFromTeam(userId, teamId)
         return ResponseEntity.ok("Пользователь успешно удален из команды")
     }
 
@@ -103,9 +107,9 @@ class TeamController(private val teamService: TeamService, private val userServi
      * @return список пользователей.
      */
     @GetMapping("/{teamId}/users")
-    fun getAllUsersInTeam(@PathVariable teamId: Long): ResponseEntity<List<User>> {
+    fun getAllUsersInTeam(@PathVariable teamId: Long): ResponseEntity<List<UserResponseDto>> {
         val team = teamService.getTeamById(teamId)
-        return ResponseEntity.ok(teamService.getAllUsersInTeam(team))
+        return ResponseEntity.ok(teamService.getAllUsersInTeam(teamId))
     }
 
     /**
@@ -115,9 +119,8 @@ class TeamController(private val teamService: TeamService, private val userServi
      * @return список команд.
      */
     @GetMapping("/user/{userId}")
-    fun getAllTeamsByUser(@PathVariable userId: Long): ResponseEntity<List<Team>> {
-        val user = userService.getUserById(userId)
-        return ResponseEntity.ok(teamService.getAllTeamsByUser(user))
+    fun getAllTeamsByUser(@PathVariable userId: Long): ResponseEntity<List<TeamResponseDto>> {
+        return ResponseEntity.ok(teamService.getAllTeamsByUser(userId))
     }
 
     /**
@@ -128,12 +131,11 @@ class TeamController(private val teamService: TeamService, private val userServi
      */
     @GetMapping("/{teamId}/notifications")
     fun getTeamNotificationSettings(@PathVariable teamId: Long): ResponseEntity<TeamNotificationSettings> {
-        val team = teamService.getTeamById(teamId)
-        return ResponseEntity.ok(teamService.getTeamNotificationSettings(team))
+        return ResponseEntity.ok(teamService.getTeamNotificationSettings(teamId))
     }
 
     @GetMapping("/{teamId}/events")
-    fun getAllEventsByTeamId(@PathVariable teamId: Long): ResponseEntity<List<Event>>{
+    fun getAllEventsByTeamId(@PathVariable teamId: Long): ResponseEntity<List<EventResponseDto>>{
         return ResponseEntity.ok(eventService.getEventsByTeamId(teamId))
     }
 
@@ -150,9 +152,7 @@ class TeamController(private val teamService: TeamService, private val userServi
         @PathVariable teamId: Long,
         @RequestBody updatedSettings: TeamNotificationSettings,
         @RequestParam userId: Long
-    ): ResponseEntity<TeamNotificationSettings> {
-        val team = teamService.getTeamById(teamId)
-        val user = userService.getUserById(userId)
-        return ResponseEntity.ok(teamService.updateTeamNotificationSettings(team, updatedSettings, user))
+    ): ResponseEntity<TeamNotificationSettingsCreationDto> {
+        return ResponseEntity.ok(teamService.updateTeamNotificationSettings(teamId, updatedSettings, userId))
     }
 }

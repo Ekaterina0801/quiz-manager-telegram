@@ -8,6 +8,7 @@ import com.Quiz_manager.enums.Role
 import com.Quiz_manager.repository.TeamMembershipRepository
 import com.Quiz_manager.repository.TeamNotificationSettingsRepository
 import com.Quiz_manager.repository.TeamRepository
+import com.Quiz_manager.repository.UserRepository
 import org.junit.jupiter.api.Test
 import org.mockito.Mockito.*
 import org.junit.jupiter.api.Assertions.*
@@ -23,6 +24,7 @@ class TeamServiceTest {
     private val inviteCodeGeneratorService = mock(InviteCodeGeneratorService::class.java)
     private val telegramService = mock(TelegramService::class.java)
     private val userService = mock(UserService::class.java)
+    private val userRepository = mock(UserRepository::class.java)
 
     private val teamService = spy(
         TeamService(
@@ -31,7 +33,8 @@ class TeamServiceTest {
             teamNotificationSettingsRepository,
             inviteCodeGeneratorService,
             telegramService,
-            userService
+            userService,
+            userRepository
         )
     )
 
@@ -92,11 +95,11 @@ class TeamServiceTest {
             registrationReminderHoursBeforeEvent = 12
         )
 
-        `when`(teamNotificationSettingsRepository.findByTeam(team)).thenReturn(currentSettings)
-        `when`(teamMembershipRepository.existsByTeamAndUserAndRole(team, currentUser, Role.ADMIN)).thenReturn(true)
+        `when`(teamNotificationSettingsRepository.findByTeamId(1L)).thenReturn(currentSettings)
+        `when`(teamMembershipRepository.existsByTeamIdAndUserIdAndRole(1L, currentUser.id, Role.ADMIN)).thenReturn(true)
         `when`(teamNotificationSettingsRepository.save(any(TeamNotificationSettings::class.java))).thenReturn(updatedSettings)
 
-        val result = teamService.updateTeamNotificationSettings(team, updatedSettings, currentUser)
+        val result = teamService.updateTeamNotificationSettings(team.id, updatedSettings, currentUser.id)
 
         assertNotNull(result)
         assertFalse(result.registrationNotificationEnabled)
@@ -132,11 +135,11 @@ class TeamServiceTest {
             registrationReminderHoursBeforeEvent = 24
         )
 
-        `when`(teamNotificationSettingsRepository.findByTeam(team)).thenReturn(currentSettings)
-        `when`(teamMembershipRepository.existsByTeamAndUserAndRole(team, currentUser, Role.ADMIN)).thenReturn(false)
+        `when`(teamNotificationSettingsRepository.findByTeamId(team.id)).thenReturn(currentSettings)
+        `when`(teamMembershipRepository.existsByTeamIdAndUserIdAndRole(team.id, currentUser.id, Role.ADMIN)).thenReturn(false)
 
         val exception = assertThrows<IllegalAccessException> {
-            teamService.updateTeamNotificationSettings(team, updatedSettings, currentUser)
+            teamService.updateTeamNotificationSettings(team.id, updatedSettings, currentUser.id)
         }
 
         assertEquals("Только администратор команды может изменять настройки", exception.message)
@@ -181,10 +184,10 @@ class TeamServiceTest {
 
         val teamMembership = TeamMembership(user = user, team = team, role = Role.USER)
 
-        `when`(teamMembershipRepository.findByTeamAndUser(team, user)).thenReturn(null)
+        `when`(teamMembershipRepository.findByTeamIdAndUserId(team.id, user.id)).thenReturn(null)
         `when`(teamMembershipRepository.save(any(TeamMembership::class.java))).thenReturn(teamMembership)
 
-        val result = teamService.addUserToTeam(user, team, Role.USER)
+        val result = teamService.addUserToTeam(user.id, team.id, Role.USER)
 
         assertNotNull(result)
         assertEquals(user, result.user)
@@ -206,14 +209,14 @@ class TeamServiceTest {
 
         val existingMembership = TeamMembership(user = user, team = team, role = Role.USER)
 
-        `when`(teamMembershipRepository.findByTeamAndUser(team, user)).thenReturn(existingMembership)
+        `when`(teamMembershipRepository.findByTeamIdAndUserId(team.id, user.id)).thenReturn(existingMembership)
 
-        val result = teamService.addUserToTeam(user, team, Role.USER)
+        val result = teamService.addUserToTeam(user.id, team.id, Role.USER)
 
         assertNotNull(result)
         assertEquals(existingMembership, result)
 
-        verify(teamMembershipRepository, times(1)).findByTeamAndUser(team, user)
+        verify(teamMembershipRepository, times(1)).findByTeamIdAndUserId(team.id, user.id)
         verify(teamMembershipRepository, never()).save(any(TeamMembership::class.java))
     }
 
@@ -232,9 +235,9 @@ class TeamServiceTest {
 
         val teamMembership = TeamMembership(user = user, team = team, role = Role.USER)
 
-        `when`(teamMembershipRepository.findByTeamAndUser(team, user)).thenReturn(teamMembership)
+        `when`(teamMembershipRepository.findByTeamIdAndUserId(team.id, user.id)).thenReturn(teamMembership)
 
-        teamService.removeUserFromTeam(user, team)
+        teamService.removeUserFromTeam(user.id, team.id)
 
         verify(teamMembershipRepository, times(1)).delete(teamMembership)
     }
@@ -251,10 +254,10 @@ class TeamServiceTest {
             )
         val team = Team(id = 1L, name = "Test Team", inviteCode = "ABC123", chatId = "123456")
 
-        `when`(teamMembershipRepository.findByTeamAndUser(team, user)).thenReturn(null)
+        `when`(teamMembershipRepository.findByTeamIdAndUserId(team.id, user.id)).thenReturn(null)
 
         val exception = assertThrows<IllegalArgumentException> {
-            teamService.removeUserFromTeam(user, team)
+            teamService.removeUserFromTeam(user.id, team.id)
         }
 
         assertEquals("Пользователь не состоит в данной команде", exception.message)

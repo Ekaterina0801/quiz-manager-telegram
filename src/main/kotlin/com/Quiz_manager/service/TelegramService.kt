@@ -6,8 +6,12 @@ import com.Quiz_manager.domain.TeamMembership
 import com.Quiz_manager.domain.User
 import com.Quiz_manager.dto.ChatAdministratorsResponse
 import com.Quiz_manager.dto.TelegramUser
-import com.Quiz_manager.dto.TelegramUserResponse
+import com.Quiz_manager.dto.response.TeamMembershipResponseDto
+import com.Quiz_manager.dto.response.TelegramUserResponse
+import com.Quiz_manager.dto.response.UserResponseDto
 import com.Quiz_manager.enums.Role
+import com.Quiz_manager.mapper.toDto
+import com.Quiz_manager.mapper.toEntity
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Lazy
@@ -97,11 +101,9 @@ class TelegramService(
      * @param teamId ID команды, в которую будет добавлен пользователь
      * @param role Роль пользователя в команде
      */
-    fun handleAddUserToTeam(telegramId: String, teamId: Long, role: Role?): TeamMembership {
-        val user = findOrCreateUser(telegramId)
-        val team = teamService.getTeamById(teamId)
-
-        return teamService.addUserToTeam(user, team, role)
+    fun handleAddUserToTeam(telegramId: String, teamId: Long, role: Role?): TeamMembershipResponseDto {
+        val user = findOrCreateUser(telegramId).toEntity()
+        return teamService.addUserToTeam(user.id, teamId, role).toDto()
     }
 
     /**
@@ -110,10 +112,10 @@ class TelegramService(
      * @param telegramId ID чата в Telegram
      * @return объект User
      */
-    fun findOrCreateUser(telegramId: String): User {
+    fun findOrCreateUser(telegramId: String): UserResponseDto {
         val existingUser = userService.findByTelegramId(telegramId)
         if (existingUser != null) {
-            return existingUser
+            return existingUser.toDto()
         }
 
         val userInfo = getUserInfo(telegramId)
@@ -126,7 +128,7 @@ class TelegramService(
             firstName = firstName,
             lastName = lastName,
             telegramId = telegramId
-        )
+        ).toDto()
     }
 
 
@@ -136,14 +138,14 @@ class TelegramService(
      * @param update Обновление от Telegram
      * @return объект User
      */
-    fun findOrCreateUser(update: Update): User {
+    fun findOrCreateUser(update: Update): UserResponseDto {
         val chatId = update.message.chatId
         val telegramId = chatId.toString()
 
         val existingUser = userService.findByTelegramId(telegramId)
 
         if (existingUser != null) {
-            return existingUser
+            return existingUser.toDto()
         }
 
 
@@ -155,7 +157,7 @@ class TelegramService(
             firstName = firstName,
             lastName = lastName,
             telegramId = telegramId
-        )
+        ).toDto()
     }
 
     fun isUserAdmin(chatId: String, userId: String): Boolean {

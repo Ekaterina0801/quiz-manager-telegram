@@ -1,8 +1,6 @@
 package com.Quiz_manager.service
 
-import com.Quiz_manager.domain.Team
-import com.Quiz_manager.domain.TeamNotificationSettings
-import com.Quiz_manager.dto.TeamNotificationSettingsDTO
+import com.Quiz_manager.dto.request.TeamNotificationSettingsCreationDto
 import com.Quiz_manager.mapper.toDto
 import com.Quiz_manager.mapper.toEntity
 import com.Quiz_manager.repository.TeamNotificationSettingsRepository
@@ -23,11 +21,11 @@ class TeamNotificationSettingsService(
     /**
      * Получает настройки уведомлений для команды.
      */
-    fun getSettingsForTeam(teamId: Long): TeamNotificationSettingsDTO {
+    fun getSettingsForTeam(teamId: Long): TeamNotificationSettingsCreationDto {
         val team = teamRepository.findById(teamId)
             .orElseThrow { EntityNotFoundException("Команда с id $teamId не найдена") }
 
-        val settings = teamNotificationSettingsRepository.findByTeam(team)
+        val settings = teamNotificationSettingsRepository.findByTeamId(teamId)
             ?: throw EntityNotFoundException("Настройки уведомлений не найдены для команды с id $teamId")
 
         return settings.toDto()
@@ -37,11 +35,11 @@ class TeamNotificationSettingsService(
      * Создает или обновляет настройки уведомлений для команды.
      */
     @Transactional
-    fun createOrUpdateSettings(teamId: Long, settingsDTO: TeamNotificationSettingsDTO): TeamNotificationSettingsDTO {
+    fun createOrUpdateSettings(teamId: Long, settingsDTO: TeamNotificationSettingsCreationDto): TeamNotificationSettingsCreationDto {
         val team = teamRepository.findById(teamId)
             .orElseThrow { EntityNotFoundException("Команда с id $teamId не найдена") }
 
-        val updatedSettings = teamNotificationSettingsRepository.findByTeam(team)?.apply {
+        val updatedSettings = teamNotificationSettingsRepository.findByTeamId(teamId)?.apply {
             registrationNotificationEnabled = settingsDTO.registrationNotificationEnabled
             unregisterNotificationEnabled = settingsDTO.unregisterNotificationEnabled
             eventReminderEnabled = settingsDTO.eventReminderEnabled
@@ -56,10 +54,8 @@ class TeamNotificationSettingsService(
      */
     @Transactional
     fun deleteSettingsForTeam(teamId: Long) {
-        val team = teamRepository.findById(teamId)
-            .orElseThrow { EntityNotFoundException("Команда с id $teamId не найдена") }
 
-        val settings = teamNotificationSettingsRepository.findByTeam(team)
+        val settings = teamNotificationSettingsRepository.findByTeamId(teamId)
             ?: throw EntityNotFoundException("Настройки уведомлений не найдены для команды с id $teamId")
 
         teamNotificationSettingsRepository.delete(settings)

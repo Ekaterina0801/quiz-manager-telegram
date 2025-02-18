@@ -1,4 +1,5 @@
 package com.Quiz_manager.domain
+import com.Quiz_manager.dto.response.EventResponseDto
 import com.Quiz_manager.service.EventService
 import com.Quiz_manager.service.TeamService
 import com.Quiz_manager.service.TelegramService
@@ -21,7 +22,6 @@ import org.telegram.telegrambots.meta.generics.TelegramClient
 @Component
 class MyTelegramBot(
     @Value("\${telegram.bot_token}") private val botToken: String,
-    @Value("\${telegram.bot_username}") private val botUsername: String,
     private val eventService: EventService,
     @Lazy
     private val teamService: TeamService,
@@ -43,11 +43,11 @@ class MyTelegramBot(
             val chatId: String = update.message.chatId.toString()
             val userId: String = update.message.from.id.toString()
 
-            when {
-                messageText.startsWith("/register_team") -> handleTeamRegister(chatId, messageText, userId)
-                messageText.startsWith("/start_team") -> handleTeamCreation(chatId)
-                messageText.startsWith("/events") -> handleGetEvents(chatId)
-                else -> handleUserInput(update)
+            when (messageText) {
+                "/старт" -> handleTeamCreation(chatId)
+                "/игры" -> handleGetEvents(chatId)
+                "/инфо" -> handleInfoCommand(chatId)
+                else -> return
             }
         }
     }
@@ -89,46 +89,7 @@ class MyTelegramBot(
         }
     }
 
-    private fun handleUserInput(update: Update) {
-        val chatId = update.message.chatId.toString()
-        val userId = update.message.from.id.toString()
-        val userMessage = update.message.text.trim()
 
-        // Проверяем, ожидает ли пользователь ввода названия команды
-        if (userWaitingForTeamName.contains(chatId)) {
-            val existingTeam = teamService.getTeamByTelegramId(chatId)
-
-            if (existingTeam != null) {
-                sendMessage(chatId, "В этом чате уже зарегистрирована команда '${existingTeam.name}'.")
-                userWaitingForTeamName.remove(chatId)
-                return
-            }
-
-            // Проверяем, является ли пользователь администратором группы/канала
-            val isAdmin = telegramService.isUserAdmin(chatId, userId)
-            if (!isAdmin) {
-                sendMessage(chatId, "Только администратор группы/канала может зарегистрировать команду.")
-                return
-            }
-            val newTeam = teamService.createTeam(userMessage, chatId)
-
-            sendMessage(chatId, "Команда '${newTeam.name}' успешно зарегистрирована! Участники могут присоединиться через приложение. Код приглашения: ${newTeam.inviteCode}")
-            userWaitingForTeamName.remove(chatId)
-        } else {
-            val user = userService.getUserByTelegramId(chatId)
-
-            if (user == null || user.teamMemberships.isEmpty()) {
-                val existingTeam = teamService.getTeamByTelegramId(chatId)
-
-                if (existingTeam == null) {
-                    sendMessage(chatId, "Вы администратор, но не зарегистрированы в команде. Пожалуйста, введите название вашей команды.")
-                    userWaitingForTeamName.add(chatId)
-                } else {
-                    sendMessage(chatId, "Вы не состоите в команде")
-                }
-            }
-        }
-    }
 
 
     fun sendMessage(chatId: String, text: String) {
@@ -144,35 +105,30 @@ class MyTelegramBot(
     }
 
 
-    private fun handleTeamRegister(chatId: String, messageText: String, userId: String) {
-        val parts = messageText.split(" ", limit = 2)
-        if (parts.size < 2) {
-            sendMessage(chatId, "Использование: /register_team <Название команды>")
-            return
-        }
-
-        val teamName = parts[1].trim()
-
-        val existingTeam = teamService.getTeamByTelegramId(chatId)
-        if (existingTeam != null) {
-            sendMessage(chatId, "В этом чате уже зарегистрирована команда '${existingTeam.name}'.")
-            return
-        }
-
-
-        val newTeam = teamService.createTeam(teamName, chatId)
-
-        sendMessage(chatId, "Команда '$teamName' успешно зарегистрирована! Участники могут присоединиться через команду: /join_team ${newTeam.inviteCode}")
-    }
-
-
-    private fun formatEventsMessage(events: List<Event>): String {
+    private fun formatEventsMessage(events: List<EventResponseDto>): String {
         return if (events.isEmpty()) {
-            "На ближайшее время нет запланированных мероприятий."
+            "На ближайшее время нет запланированных игр"
         } else {
-            "Вот список предстоящих мероприятий вашей команды:\n" +
+            "Вот список предстоящих игр вашей команды:\n" +
                     events.joinToString("\n") { "${it.dateTime}: ${it.name}" }
         }
+    }
+
+    /**
+    * Отправляет пользователю список доступных команд бота.
+    */
+    private fun handleInfoCommand(chatId: String) {
+        val infoMessage = """
+        🤖 Доступные команды бота:
+        
+        🔹 `/старт` — Создать команду.
+        🔹 `/игры` — Посмотреть список ближайших игр.
+        🔹 `/инфо` — Показать этот список команд.
+        
+        ⚠ Примечание: Команды работают в чате вашей команды.
+    """.trimIndent()
+
+        sendMessage(chatId, infoMessage)
     }
 
     @AfterBotRegistration

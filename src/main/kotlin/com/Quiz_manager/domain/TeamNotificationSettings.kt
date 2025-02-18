@@ -1,13 +1,10 @@
 package com.Quiz_manager.domain
 
-import com.fasterxml.jackson.annotation.JsonIdentityInfo
-import com.fasterxml.jackson.annotation.ObjectIdGenerators
 import jakarta.persistence.*
 import jakarta.persistence.GenerationType.*
 import org.hibernate.proxy.HibernateProxy
 
 @Entity
-@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator::class, property = "id")
 data class TeamNotificationSettings(
     @Id @GeneratedValue(strategy = IDENTITY)
     val id: Long? = null,

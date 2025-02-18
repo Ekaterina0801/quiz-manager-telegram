@@ -2,7 +2,7 @@ package com.Quiz_manager.service
 
 import com.Quiz_manager.domain.Event
 import com.Quiz_manager.domain.Team
-import com.Quiz_manager.dto.EventCreationDTO
+import com.Quiz_manager.dto.request.EventCreationDto
 import com.Quiz_manager.repository.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
@@ -67,7 +67,7 @@ class EventServiceTest {
         val userService = mock(UserService::class.java)
         val teamRepository = mock(TeamRepository::class.java)
 
-        val eventData = EventCreationDTO(
+        val eventData = EventCreationDto(
             name = "Test Event",
             description = "Description",
             dateTime = LocalDateTime.now(),
@@ -76,7 +76,8 @@ class EventServiceTest {
             teamResult = null,
             teamId = teamId,
             location = "Test",
-            userId = userId
+            userId = userId,
+            isRegistrationOpen = true
         )
 
         `when`(userService.isUserAdmin(userId, teamId)).thenReturn(true)
@@ -92,6 +93,7 @@ class EventServiceTest {
             teamResult = eventData.teamResult,
             team = team,
             location = eventData.location,
+            isRegistrationOpen = true
         )
 
         `when`(eventRepository.save(any(Event::class.java))).thenReturn(savedEvent)
@@ -130,7 +132,8 @@ class EventServiceTest {
             linkToAlbum = null,
             teamResult = null,
             team = team,
-            location = "Test"
+            location = "Test",
+            isRegistrationOpen = true
         )
 
         val eventId = 1L
@@ -162,7 +165,8 @@ class EventServiceTest {
             linkToAlbum = null,
             teamResult = null,
             team = team,
-            location = "Test"
+            location = "Test",
+            isRegistrationOpen = true
         )
 
         val eventId = 1L
@@ -197,7 +201,8 @@ class EventServiceTest {
             linkToAlbum = null,
             teamResult = null,
             team = team,
-            location = "Test"
+            location = "Test",
+            isRegistrationOpen = true
         )
 
         val eventId = 1L

@@ -1,8 +1,6 @@
 package com.Quiz_manager.repository
 
-import com.Quiz_manager.domain.Team
 import com.Quiz_manager.domain.TeamMembership
-import com.Quiz_manager.domain.User
 import com.Quiz_manager.enums.Role
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.stereotype.Repository
@@ -10,13 +8,13 @@ import org.springframework.data.jpa.repository.Query
 @Repository
 interface TeamMembershipRepository : JpaRepository<TeamMembership, Long> {
 
-    fun findByTeam(team: Team): List<TeamMembership>
+    fun findByTeamId(teamId: Long): List<TeamMembership>
 
-    fun findByUser(user: User): List<TeamMembership>
+    fun findByUserId(userId: Long): List<TeamMembership>
 
-    fun findByTeamAndUser(team: Team, user: User): TeamMembership?
+    fun findByTeamIdAndUserId(teamId: Long, userId: Long): TeamMembership?
 
-    fun findByTeamAndRole(team: Team, role: Role): List<TeamMembership>?
+    fun findByTeamIdAndRole(teamId: Long, role: Role): List<TeamMembership>?
 
     /**
      * Проверяет, существует ли членство пользователя в команде с определенной ролью.
@@ -26,9 +24,9 @@ interface TeamMembershipRepository : JpaRepository<TeamMembership, Long> {
      * @param role роль пользователя в команде
      * @return true, если членство с данной ролью существует, иначе false
      */
-    fun existsByTeamAndUserAndRole(team: Team, user: User, role: Role): Boolean
+    fun existsByTeamIdAndUserIdAndRole(teamId: Long, userId: Long, role: Role): Boolean
 
-    fun existsByTeamAndUser(team: Team, user: User): Boolean
+    fun existsByTeamIdAndUserId(teamId: Long, userId: Long): Boolean
 
 
     @Query("SELECT tm FROM TeamMembership tm WHERE tm.team.chatId = :chatId")

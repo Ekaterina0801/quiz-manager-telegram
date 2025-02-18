@@ -40,14 +40,13 @@ class UserService(
     }
 
     fun getAllMembersOfTeam(teamId: Long): List<User> {
-        val team = teamRepository.findById(teamId).orElseThrow { Exception("Команда с ID $teamId не найдена") }
-        return teamMembershipRepository.findByTeam(team).map { it.user }
+        return teamMembershipRepository.findByTeamId(teamId).map { it.user }
     }
 
     fun isUserAdmin(userId: Long, teamId: Long): Boolean {
         val user = userRepository.findById(userId).orElseThrow { Exception("Пользователь с ID $userId не найден") }
         val team = teamRepository.findById(teamId).orElseThrow { Exception("Команда с ID $teamId не найдена") }
-        val teamMembership = teamMembershipRepository.findByTeamAndUser(team, user)
+        val teamMembership = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
             ?: throw Exception("Пользователь ${user.username} не состоит в команде ${team.name}")
 
         return teamMembership.role == Role.ADMIN
@@ -64,7 +63,7 @@ class UserService(
     fun getUserRoleInTeam(userId: Long, teamId: Long): Role {
         val user = userRepository.findById(userId).orElseThrow { Exception("Пользователь с ID $userId не найден") }
         val team = teamRepository.findById(teamId).orElseThrow { Exception("Команда с ID $teamId не найдена") }
-        val teamMembership = teamMembershipRepository.findByTeamAndUser(team, user)
+        val teamMembership = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
             ?: throw Exception("Пользователь ${user.username} не состоит в команде ${team.name}")
 
         return teamMembership.role
@@ -73,14 +72,14 @@ class UserService(
     fun isUserInTeam(userId: Long, teamId: Long): Boolean {
         val user = userRepository.findById(userId).orElseThrow { Exception("Пользователь с ID $userId не найден") }
         val team = teamRepository.findById(teamId).orElseThrow { Exception("Команда с ID $teamId не найдена") }
-        return teamMembershipRepository.existsByTeamAndUser(team, user)
+        return teamMembershipRepository.existsByTeamIdAndUserId(teamId, userId)
     }
 
     fun getAdminsByTeam(teamId: Long): List<User>? {
         val team = teamRepository.findById(teamId).orElseThrow { Exception("Команда с ID $teamId не найдена") }
 
 
-        val admins = teamMembershipRepository.findByTeamAndRole(team, Role.ADMIN)
+        val admins = teamMembershipRepository.findByTeamIdAndRole(teamId, Role.ADMIN)
             ?.map { it.user }
 
         return admins
@@ -122,7 +121,7 @@ class UserService(
         val user = getUserByTelegramId(telegramId) ?: return "Пользователь не найден"
         val team = teamRepository.findByInviteCode(inviteCode) ?: return "Команда не найдена"
 
-        val teamMembership = teamMembershipRepository.findByTeamAndUser(team, user)
+        val teamMembership = teamMembershipRepository.findByTeamIdAndUserId(team.id, user.id)
             ?: return "Пользователь не состоит в этой команде"
 
         teamMembershipRepository.delete(teamMembership)
@@ -250,7 +249,7 @@ class UserService(
             Exception("Команда с ID $teamId не найдена")
         }
 
-        val teamMembership = teamMembershipRepository.findByTeamAndUser(team, user)
+        val teamMembership = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
             ?: throw Exception("Пользователь ${user.username} не состоит в команде ${team.name}")
 
         teamMembership.role = newRole

@@ -22,7 +22,7 @@ class ReminderService(
      * Планировщик, который выполняется каждый час.
      * Проверяет, нужно ли отправить напоминание о предстоящем мероприятии для всех команд.
      */
-    @Scheduled(fixedRate = 3600000)
+    @Scheduled(cron = "0 0 9 * * *")
     @Transactional
     fun checkAndSendReminders() {
         val now = LocalDateTime.now()
@@ -31,7 +31,7 @@ class ReminderService(
 
         for (event in events) {
             val team = event.team
-            val settings = teamNotificationSettingsRepository.findByTeam(team) ?: continue
+            val settings = teamNotificationSettingsRepository.findByTeamId(team.id) ?: continue
 
             if (!settings.eventReminderEnabled) continue
 
@@ -50,15 +50,23 @@ class ReminderService(
      * @param chatId ID Telegram-чата команды
      */
     private fun sendEventReminder(event: Event, chatId: String) {
+        val participants = event.registrations
+            .joinToString(separator = "\n") { "👤 ${it.fullName}" }
+
         val message = """
-            🔔 *Напоминание о мероприятии!* 🔔
-            
-            📌 *Название:* ${event.name}
-            📅 *Дата и время:* ${event.dateTime}
-            📍 *Описание:* ${event.description}
-            👥 *Количество участников:* ${event.registrations.size} чел.
-        """.trimIndent()
+        🔔 Напоминание о мероприятии! 🔔
+        
+        📌 Название: ${event.name}
+        📅 Дата и время: ${event.dateTime}
+        📍 Место: ${event.location}
+        📍 Подробнее: ${event.description}
+        👥 Количество участников: ${event.registrations.size}
+        
+        🏅 Участники:
+        $participants
+    """.trimIndent()
 
         telegramService.sendMessageToChannel(chatId, message)
     }
+
 }

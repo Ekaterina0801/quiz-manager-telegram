@@ -6,5 +6,5 @@ import com.Quiz_manager.domain.User
 import org.springframework.data.jpa.repository.JpaRepository
 
 interface RegistrationRepository : JpaRepository<Registration, Long> {
-    fun findByEventAndFullName(event: Event, fullName: String): Registration?
+    fun findByEventIdAndFullName(eventId: Long, fullName: String): Registration?
 }

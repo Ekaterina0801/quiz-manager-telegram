@@ -8,26 +8,7 @@ import org.springframework.stereotype.Repository
 @Repository
 interface TeamNotificationSettingsRepository : JpaRepository<TeamNotificationSettings, Long> {
 
-    /**
-     * Находит настройки уведомлений по команде.
-     *
-     * @param team команда
-     * @return настройки уведомлений для команды, если они существуют
-     */
-    fun findByTeam(team: Team): TeamNotificationSettings?
+    fun findByTeamId(teamId: Long): TeamNotificationSettings?
 
-
-    /**
-     * Находит все настройки уведомлений для всех команд.
-     *
-     * @return список всех настроек уведомлений
-     */
-    fun findAllBy(): List<TeamNotificationSettings>
-
-    /**
-     * Удаляет настройки уведомлений по команде.
-     *
-     * @param team команда
-     */
-    fun deleteByTeam(team: Team)
+    fun deleteByTeamId(teamId: Long)
 }

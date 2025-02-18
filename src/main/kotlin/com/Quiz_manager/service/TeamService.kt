@@ -4,7 +4,12 @@ import com.Quiz_manager.domain.Team
 import com.Quiz_manager.domain.TeamMembership
 import com.Quiz_manager.domain.TeamNotificationSettings
 import com.Quiz_manager.domain.User
+import com.Quiz_manager.dto.request.TeamNotificationSettingsCreationDto
+import com.Quiz_manager.dto.response.TeamResponseDto
+import com.Quiz_manager.dto.response.UserResponseDto
 import com.Quiz_manager.enums.Role
+import com.Quiz_manager.mapper.toDto
+import com.Quiz_manager.mapper.toEntity
 import com.Quiz_manager.repository.*
 import jakarta.transaction.Transactional
 import org.springframework.scheduling.annotation.Scheduled
@@ -15,7 +20,7 @@ class TeamService(
     private val teamMembershipRepository: TeamMembershipRepository,
     private val teamNotificationSettingsRepository: TeamNotificationSettingsRepository,
     private val inviteCodeGeneratorService: InviteCodeGeneratorService, private val telegramService: TelegramService,
-    private val userService: UserService
+    private val userService: UserService, private val userRepository: UserRepository
 ) {
     /**
      * Создает новую команду с настройками по умолчанию.
@@ -24,7 +29,7 @@ class TeamService(
      * @param chatId ID чата команды
      * @return созданная команда
      */
-    fun createTeam(teamName: String, chatId: String): Team {
+    fun createTeam(teamName: String, chatId: String): TeamResponseDto {
         var inviteCode: String
         do {
             inviteCode = inviteCodeGeneratorService.generateInviteCode()
@@ -42,7 +47,7 @@ class TeamService(
         )
         teamNotificationSettingsRepository.save(defaultSettings)
         syncChatAdminsWithTeam(savedTeam.id)
-        return savedTeam
+        return savedTeam.toDto()
     }
 
     @Scheduled(fixedRate = 24 * 60 * 60 * 1000)
@@ -67,14 +72,14 @@ class TeamService(
         val chatAdmins = telegramService.getChatAdministrators(chatId)
         val adminIds = chatAdmins.map { it.id.toString() }.toSet()
 
-        val existingAdmins = teamMembershipRepository.findByTeamAndRole(team, Role.ADMIN)
+        val existingAdmins = teamMembershipRepository.findByTeamIdAndRole(teamId, Role.ADMIN)
         val existingAdminIds = existingAdmins?.map { it.user.telegramId }?.toSet()
 
 
         chatAdmins.forEach { admin ->
             val user = userService.findOrCreateUser(admin.id.toString())
 
-            teamMembershipRepository.findByTeamAndUser(team, user)?.let { existingMembership ->
+            teamMembershipRepository.findByTeamIdAndUserId(teamId, user.id)?.let { existingMembership ->
                 if (existingMembership.role != Role.ADMIN) {
                     existingMembership.role = Role.ADMIN
                     teamMembershipRepository.save(existingMembership)
@@ -109,13 +114,12 @@ class TeamService(
      * @param updatedSettings новые настройки
      * @return обновленные настройки
      */
-    fun updateTeamNotificationSettings(team: Team, updatedSettings: TeamNotificationSettings, currentUser: User): TeamNotificationSettings {
-
-        val currentSettings = teamNotificationSettingsRepository.findByTeam(team)
+    fun updateTeamNotificationSettings(teamId: Long, updatedSettings: TeamNotificationSettings, currentUserId: Long): TeamNotificationSettingsCreationDto {
+        val currentSettings = teamNotificationSettingsRepository.findByTeamId(teamId)
             ?: throw IllegalArgumentException("Настройки уведомлений для этой команды не найдены")
 
 
-        val isAdmin = teamMembershipRepository.existsByTeamAndUserAndRole(team, currentUser, Role.ADMIN)
+        val isAdmin = teamMembershipRepository.existsByTeamIdAndUserIdAndRole(teamId, currentUserId, Role.ADMIN)
         if (!isAdmin) {
             throw IllegalAccessException("Только администратор команды может изменять настройки")
         }
@@ -128,8 +132,7 @@ class TeamService(
             registrationReminderHoursBeforeEvent = updatedSettings.registrationReminderHoursBeforeEvent
         }
 
-        // Сохраняем обновленные настройки
-        return teamNotificationSettingsRepository.save(currentSettings)
+        return teamNotificationSettingsRepository.save(currentSettings).toDto()
     }
 
 
@@ -139,8 +142,8 @@ class TeamService(
      * @param team команда
      * @return настройки уведомлений
      */
-    fun getTeamNotificationSettings(team: Team): TeamNotificationSettings {
-        return teamNotificationSettingsRepository.findByTeam(team)
+    fun getTeamNotificationSettings(teamId: Long): TeamNotificationSettings {
+        return teamNotificationSettingsRepository.findByTeamId(teamId)
             ?: throw IllegalArgumentException("Настройки уведомлений для этой команды не найдены")
     }
 
@@ -150,12 +153,11 @@ class TeamService(
      * @param teamId ID команды
      * @return команда
      */
-    fun getTeamById(teamId: Long): Team {
-        return teamRepository.findById(teamId).orElseThrow { IllegalArgumentException("Команда не найдена") }
-    }
+    fun getTeamById(teamId: Long): TeamResponseDto {
+        val team = teamRepository.findById(teamId)
+            .orElseThrow { IllegalArgumentException("Команда не найдена") }
 
-    fun getTeamByTelegramId(telegramId: String): Team? {
-        return teamRepository.findByChatId(telegramId)
+        return team.toDto()
     }
 
     /**
@@ -164,13 +166,13 @@ class TeamService(
      * @param inviteCode код приглашения команды
      * @return команда или null, если команда не найдена
      */
-    fun getTeamByCode(inviteCode: String): Team? {
-        return teamRepository.findByInviteCode(inviteCode)
+    fun getTeamByCode(inviteCode: String): TeamResponseDto? {
+        return teamRepository.findByInviteCode(inviteCode)?.toDto()
     }
 
 
-    fun getTeams(): List<Team>? {
-        return teamRepository.findAll()
+    fun getTeams(): List<TeamResponseDto>? {
+        return teamRepository.findAll().map { x->x.toDto() }
     }
 
 
@@ -182,8 +184,10 @@ class TeamService(
      * @param role роль пользователя в команде
      * @return объект TeamMembership
      */
-    fun addUserToTeam(user: User, team: Team, role: Role?): TeamMembership {
-        val existingMembership = teamMembershipRepository.findByTeamAndUser(team, user)
+    fun addUserToTeam(userId: Long, teamId: Long, role: Role?): TeamMembership {
+        val user = userService.getUserById(userId)
+        val team = getTeamById(teamId).toEntity()
+        val existingMembership = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
         if (existingMembership != null) {
             return existingMembership
         }
@@ -200,8 +204,8 @@ class TeamService(
      * @param user пользователь
      * @param team команда
      */
-    fun removeUserFromTeam(user: User, team: Team) {
-        val teamMembership = teamMembershipRepository.findByTeamAndUser(team, user)
+    fun removeUserFromTeam(userId: Long, teamId: Long) {
+        val teamMembership = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
             ?: throw IllegalArgumentException("Пользователь не состоит в данной команде")
         teamMembershipRepository.delete(teamMembership)
     }
@@ -212,8 +216,8 @@ class TeamService(
      * @param team команда
      * @return список пользователей в команде
      */
-    fun getAllUsersInTeam(team: Team): List<User> {
-        return teamMembershipRepository.findByTeam(team).map { it.user }
+    fun getAllUsersInTeam(teamId: Long): List<UserResponseDto> {
+        return teamMembershipRepository.findByTeamId(teamId).map { it.user.toDto() }
     }
 
     /**
@@ -222,8 +226,8 @@ class TeamService(
      * @param user пользователь
      * @return список команд, в которых состоит пользователь
      */
-    fun getAllTeamsByUser(user: User): List<Team> {
-        return teamMembershipRepository.findByUser(user).map { it.team }
+    fun getAllTeamsByUser(userId: Long): List<TeamResponseDto> {
+        return teamMembershipRepository.findByUserId(userId).map { it.team.toDto() }
     }
 
 }

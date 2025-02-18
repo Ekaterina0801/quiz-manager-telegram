@@ -1,31 +1,30 @@
 package com.Quiz_manager.controller
 
 import com.Quiz_manager.domain.Event
-import com.Quiz_manager.dto.EventCreationDTO
+import com.Quiz_manager.dto.request.EventCreationDto
 import com.Quiz_manager.dto.RegistrationData
+import com.Quiz_manager.dto.response.EventResponseDto
 import com.Quiz_manager.service.EventService
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
-import org.springframework.web.multipart.MultipartFile
+
 @RestController
 @RequestMapping("/api/events")
 class EventController(private val eventService: EventService) {
 
     @GetMapping
-    fun getAllEvents(): ResponseEntity<List<Event>> = ResponseEntity.ok(eventService.getAllEvents())
+    fun getAllEvents(): ResponseEntity<List<EventResponseDto>> = ResponseEntity.ok(eventService.getAllEvents())
 
 
     @GetMapping("/{eventId}")
-    fun getEventById(@PathVariable eventId: Long): ResponseEntity<Event> {
+    fun getEventById(@PathVariable eventId: Long): ResponseEntity<EventResponseDto> {
         val event = eventService.getEventById(eventId) ?: return ResponseEntity.notFound().build()
         return ResponseEntity.ok(event)
     }
 
     @PostMapping
-    fun createEvent(@ModelAttribute eventRequest: EventCreationDTO): ResponseEntity<Any> {
+    fun createEvent(@ModelAttribute eventRequest: EventCreationDto): ResponseEntity<Any> {
         return try {
             val createdEvent = eventService.createEvent(eventRequest)
             ResponseEntity.ok(createdEvent)
@@ -38,7 +37,7 @@ class EventController(private val eventService: EventService) {
     @PutMapping("/{eventId}")
     fun updateEvent(
         @PathVariable eventId: Long,
-        eventData: EventCreationDTO
+        eventData: EventCreationDto
     ): ResponseEntity<Any> {
         return try {
             val event = eventService.updateEvent(eventId, eventData)

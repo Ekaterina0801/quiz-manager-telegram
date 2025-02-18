@@ -1,13 +1,10 @@
 package com.Quiz_manager.domain
 
-import com.fasterxml.jackson.annotation.JsonIdentityInfo
-import com.fasterxml.jackson.annotation.ObjectIdGenerators
 import jakarta.persistence.*
 import java.time.LocalDateTime
 
 
 @Entity
-@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator::class, property = "id")
 data class Event(
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
@@ -18,6 +15,7 @@ data class Event(
     val posterUrl: String?,
     val linkToAlbum: String?,
     val teamResult: String?,
+    val isRegistrationOpen: Boolean,
 
     @ManyToOne
     @JoinColumn(name = "team_id", nullable = false)

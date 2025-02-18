@@ -1,6 +1,6 @@
-package com.Quiz_manager.dto
+package com.Quiz_manager.dto.request
 
-data class TeamNotificationSettingsDTO(
+data class TeamNotificationSettingsCreationDto(
     val id: Long? = null,
     val teamId: Long,
     val registrationNotificationEnabled: Boolean = true,

@@ -2,12 +2,10 @@ package com.Quiz_manager.mapper
 
 import com.Quiz_manager.domain.Team
 import com.Quiz_manager.domain.TeamNotificationSettings
-import com.Quiz_manager.domain.User
-import com.Quiz_manager.dto.TeamNotificationSettingsDTO
-import com.Quiz_manager.dto.TelegramUser
+import com.Quiz_manager.dto.request.TeamNotificationSettingsCreationDto
 
-fun TeamNotificationSettings.toDto(): TeamNotificationSettingsDTO {
-    return TeamNotificationSettingsDTO(
+fun TeamNotificationSettings.toDto(): TeamNotificationSettingsCreationDto {
+    return TeamNotificationSettingsCreationDto(
         id = this.id,
         teamId = this.team.id ?: throw IllegalStateException("Team ID cannot be null"),
         registrationNotificationEnabled = this.registrationNotificationEnabled,
@@ -17,7 +15,7 @@ fun TeamNotificationSettings.toDto(): TeamNotificationSettingsDTO {
     )
 }
 
-fun TeamNotificationSettingsDTO.toEntity(team: Team): TeamNotificationSettings {
+fun TeamNotificationSettingsCreationDto.toEntity(team: Team): TeamNotificationSettings {
     return TeamNotificationSettings(
         id = this.id,
         team = team,

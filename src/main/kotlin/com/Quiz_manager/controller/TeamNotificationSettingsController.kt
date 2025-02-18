@@ -1,9 +1,7 @@
 package com.Quiz_manager.controller
 
-import com.Quiz_manager.domain.TeamNotificationSettings
-import com.Quiz_manager.dto.TeamNotificationSettingsDTO
+import com.Quiz_manager.dto.request.TeamNotificationSettingsCreationDto
 import com.Quiz_manager.service.TeamNotificationSettingsService
-import com.Quiz_manager.service.TeamService
 import jakarta.persistence.EntityNotFoundException
 import org.slf4j.LoggerFactory
 import org.springframework.http.HttpStatus
@@ -21,7 +19,7 @@ class TeamNotificationSettingsController(
      * Получает настройки уведомлений для команды.
      */
     @GetMapping("/{teamId}")
-    fun getSettingsForTeam(@PathVariable teamId: Long): ResponseEntity<TeamNotificationSettingsDTO> {
+    fun getSettingsForTeam(@PathVariable teamId: Long): ResponseEntity<TeamNotificationSettingsCreationDto> {
         return try {
             val settings = teamNotificationSettingsService.getSettingsForTeam(teamId)
             ResponseEntity.ok(settings)
@@ -40,8 +38,8 @@ class TeamNotificationSettingsController(
     @PostMapping("/{teamId}")
     fun createOrUpdateSettings(
         @PathVariable teamId: Long,
-        @RequestBody settingsDTO: TeamNotificationSettingsDTO
-    ): ResponseEntity<TeamNotificationSettingsDTO> {
+        @RequestBody settingsDTO: TeamNotificationSettingsCreationDto
+    ): ResponseEntity<TeamNotificationSettingsCreationDto> {
         return try {
             val updatedSettings = teamNotificationSettingsService.createOrUpdateSettings(teamId, settingsDTO)
             ResponseEntity.ok(updatedSettings)

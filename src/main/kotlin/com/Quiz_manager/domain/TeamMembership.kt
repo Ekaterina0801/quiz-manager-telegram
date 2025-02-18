@@ -1,12 +1,9 @@
 package com.Quiz_manager.domain
 
 import com.Quiz_manager.enums.Role
-import com.fasterxml.jackson.annotation.JsonIdentityInfo
-import com.fasterxml.jackson.annotation.ObjectIdGenerators
 import jakarta.persistence.*
 
 @Entity
-@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator::class, property = "id")
 data class TeamMembership(
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,

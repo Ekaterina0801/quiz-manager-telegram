@@ -3,7 +3,6 @@ package com.Quiz_manager.domain
 import jakarta.persistence.*
 
 @Entity
-//@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator::class, property = "id")
 data class User(
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long,

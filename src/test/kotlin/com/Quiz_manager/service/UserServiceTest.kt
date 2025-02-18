@@ -164,7 +164,7 @@ class UserServiceTest {
 
         whenever(userRepository.findByTelegramId(telegramId)).thenReturn(user)
         whenever(teamRepository.findByInviteCode(inviteCode)).thenReturn(team)
-        whenever(teamMembershipRepository.findByTeamAndUser(team, user)).thenReturn(teamMembership)
+        whenever(teamMembershipRepository.findByTeamIdAndUserId(team.id, user.id)).thenReturn(teamMembership)
 
 
         val result = userService.removeUserFromTeam(telegramId, inviteCode)
@@ -173,7 +173,7 @@ class UserServiceTest {
         assertEquals("Пользователь успешно удален из команды", result)
         verify(userRepository).findByTelegramId(telegramId)
         verify(teamRepository).findByInviteCode(inviteCode)
-        verify(teamMembershipRepository).findByTeamAndUser(team, user)
+        verify(teamMembershipRepository).findByTeamIdAndUserId(team.id, user.id)
         verify(teamMembershipRepository).delete(teamMembership)
     }
 
@@ -187,7 +187,7 @@ class UserServiceTest {
 
         whenever(userRepository.findByTelegramId(telegramId)).thenReturn(user)
         whenever(teamRepository.findByInviteCode(inviteCode)).thenReturn(team)
-        whenever(teamMembershipRepository.findByTeamAndUser(team, user)).thenReturn(null)
+        whenever(teamMembershipRepository.findByTeamIdAndUserId(team.id, user.id)).thenReturn(null)
 
 
         val result = userService.removeUserFromTeam(telegramId, inviteCode)
@@ -195,7 +195,7 @@ class UserServiceTest {
         assertEquals("Пользователь не состоит в этой команде", result)
         verify(userRepository).findByTelegramId(telegramId)
         verify(teamRepository).findByInviteCode(inviteCode)
-        verify(teamMembershipRepository).findByTeamAndUser(team, user)
+        verify(teamMembershipRepository).findByTeamIdAndUserId(team.id, user.id)
         verifyNoMoreInteractions(teamMembershipRepository)
     }
 }

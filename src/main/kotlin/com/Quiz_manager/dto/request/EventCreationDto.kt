@@ -1,10 +1,10 @@
-package com.Quiz_manager.dto
+package com.Quiz_manager.dto.request
 
 import org.springframework.web.multipart.MultipartFile
 import com.fasterxml.jackson.annotation.JsonFormat
 import java.time.LocalDateTime
 
-data class EventCreationDTO(
+data class EventCreationDto(
     val name: String,
 
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
@@ -17,6 +17,8 @@ data class EventCreationDTO(
 
     val teamId: Long,
     val userId: Long,
+
+    val isRegistrationOpen: Boolean,
 
     var imageFile: MultipartFile? = null
 )
