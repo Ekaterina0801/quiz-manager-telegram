@@ -135,7 +135,7 @@ class MyTelegramBot(
     }
 
     private fun handleGetEvents(userId: String, chatId: String) {
-        val user = userService.getUserByTelegramId(chatId)
+        val user = userService.getUserByTelegramId(userId)
         if (user == null) {
             sendMessage(chatId, "Вы не зарегистрированы")
             return
