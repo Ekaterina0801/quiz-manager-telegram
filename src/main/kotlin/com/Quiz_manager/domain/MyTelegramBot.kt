@@ -1,5 +1,6 @@
 package com.Quiz_manager.domain
 import com.Quiz_manager.dto.response.EventResponseDto
+import com.Quiz_manager.enums.Role
 import com.Quiz_manager.service.EventService
 import com.Quiz_manager.service.TeamService
 import com.Quiz_manager.service.TelegramService
@@ -59,28 +60,10 @@ class MyTelegramBot(
     /**
      * Проверяет, есть ли уже команда в чате. Если есть - выдаёт сообщение и ничего не делает.
      */
-    private fun handleTeamCreation(userId: String, chatId: String) {
-        val existingTeam = teamService.getTeamByChatId(chatId)
-        if (existingTeam != null) {
-            sendMessage(chatId, "В чате уже есть команда: ${existingTeam.name}")
-            return
-        }
-
-        if (userWaitingForTeamName.containsKey(userId)) {
-            sendMessage(chatId, "Вы уже вводите название команды. Пожалуйста, отправьте название")
-            return
-        }
-
-        sendMessage(chatId, "Введите название вашей новой команды:")
-        userWaitingForTeamName[userId] = chatId
-    }
-
-    /**
-     * Создаёт команду, если её нет, иначе сообщает, что такая команда уже существует.
-     */
     private fun handleNewTeamName(userId: String, chatId: String, teamName: String) {
         userWaitingForTeamName.remove(userId)
 
+        // Проверяем, есть ли уже команда с таким названием в чате
         val existingTeam = teamService.getTeamByChatId(chatId)
         if (existingTeam != null && existingTeam.name.equals(teamName, ignoreCase = true)) {
             sendMessage(chatId, "Команда с таким названием уже есть в этом чате!")
@@ -88,12 +71,36 @@ class MyTelegramBot(
         }
 
         try {
+            // Создаем новую команду
             val newTeam = teamService.createTeam(teamName, chatId)
-            sendMessage(chatId, "Команда \"$teamName\" успешно создана! 🎉Код приглашения в команду для приложения: ${newTeam.inviteCode}")
+
+            // Получаем список администраторов чата
+            val chatAdmins = telegramService.getChatAdministrators(chatId)
+            val adminIds = chatAdmins.map { it.id.toString() }.toSet()
+
+            // Добавляем администраторов чата в команду с ролью администратора
+            chatAdmins.forEach { admin ->
+                teamService.addUserToTeam(admin.id, newTeam.id, role=Role.ADMIN)
+            }
+
+            // Отправляем сообщение об успешном создании команды
+            sendMessage(
+                chatId,
+                "Команда \"$teamName\" успешно создана! 🎉\n" +
+                        "Код приглашения в команду для приложения: ${newTeam.inviteCode}\n" +
+                        "Администраторы чата были добавлены в команду с правами администратора! 🔥"
+            )
         } catch (e: Exception) {
             sendMessage(chatId, "Ошибка создания команды: ${e.message}")
         }
     }
+
+
+
+    /**
+     * Создаёт команду, если её нет, иначе сообщает, что такая команда уже существует.
+     */
+
 
     /**
      * Запрашивает подтверждение удаления команды, если пользователь — админ.
@@ -176,6 +183,18 @@ class MyTelegramBot(
                     events.joinToString("\n") { "${it.dateTime}: ${it.name}" }
         }
     }
+
+    private fun handleTeamCreation(userId: String, chatId: String) {
+        val existingTeam = teamService.getTeamByChatId(chatId)
+        if (existingTeam != null) {
+            sendMessage(chatId, "В этом чате уже существует команда: \"${existingTeam.name}\".")
+            return
+        }
+        sendMessage(chatId, "Введите название команды, которую хотите создать:")
+
+        userWaitingForTeamName[userId] = chatId
+    }
+
 
     private fun handleInfoCommand(chatId: String) {
         val infoMessage = """

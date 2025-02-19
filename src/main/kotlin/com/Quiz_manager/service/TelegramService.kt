@@ -17,7 +17,10 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Lazy
 import org.springframework.stereotype.Service
 import org.springframework.web.client.RestTemplate
+import org.telegram.telegrambots.meta.api.methods.groupadministration.GetChatMember
 import org.telegram.telegrambots.meta.api.objects.Update
+import org.telegram.telegrambots.meta.api.objects.chatmember.ChatMember
+import org.telegram.telegrambots.meta.exceptions.TelegramApiException
 
 @Service
 class TelegramService(
@@ -105,6 +108,8 @@ class TelegramService(
         val user = findOrCreateUser(telegramId).toEntity()
         return teamService.addUserToTeam(user.id, teamId, role).toDto()
     }
+
+
 
     /**
      * Находит или создает пользователя по его chatId.
