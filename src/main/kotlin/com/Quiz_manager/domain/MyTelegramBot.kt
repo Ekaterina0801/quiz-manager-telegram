@@ -43,12 +43,12 @@ class MyTelegramBot(
         if (update.hasMessage() && update.message.hasText()) {
             val messageText: String = update.message.text.lowercase()
             val chatId: String = update.message.chatId.toString()
-            val userId: String = update.message.from.id.toString() // <-- теперь берём ID пользователя правильно!
+            val userId: String = update.message.from.id.toString()
 
             when {
                 messageText == "/старт" -> handleTeamCreation(userId, chatId)
                 messageText == "/удалить_команду" -> handleDeleteTeamRequest(userId, chatId)
-                messageText == "/игры" -> handleGetEvents(userId)
+                messageText == "/игры" -> handleGetEvents(userId, chatId)
                 messageText == "/инфо" -> handleInfoCommand(chatId)
                 userWaitingForTeamName.containsKey(userId) -> handleNewTeamName(userId, chatId, messageText)
                 userWaitingForDeletionConfirmation.containsKey(userId) -> handleDeleteConfirmation(userId, chatId, messageText)
@@ -71,19 +71,13 @@ class MyTelegramBot(
         }
 
         try {
-            // Создаем новую команду
             val newTeam = teamService.createTeam(teamName, chatId)
-
-            // Получаем список администраторов чата
             val chatAdmins = telegramService.getChatAdministrators(chatId)
             val adminIds = chatAdmins.map { it.id.toString() }.toSet()
-
-            // Добавляем администраторов чата в команду с ролью администратора
             chatAdmins.forEach { admin ->
                 teamService.addUserToTeam(admin.id, newTeam.id, role=Role.ADMIN)
             }
 
-            // Отправляем сообщение об успешном создании команды
             sendMessage(
                 chatId,
                 "Команда \"$teamName\" успешно создана! 🎉\n" +
@@ -140,7 +134,7 @@ class MyTelegramBot(
         }
     }
 
-    private fun handleGetEvents(chatId: String) {
+    private fun handleGetEvents(userId: String, chatId: String) {
         val user = userService.getUserByTelegramId(chatId)
         if (user == null) {
             sendMessage(chatId, "Вы не зарегистрированы")
