@@ -160,6 +160,15 @@ class TeamService(
         return team.toDto()
     }
 
+    fun getTeamByChatId(chatId: String): TeamResponseDto? {
+        return teamRepository.findByChatId(chatId)?.toDto()
+    }
+
+    fun deleteTeamById(teamId: Long){
+        teamRepository.deleteById(teamId)
+    }
+
+
     /**
      * Получает команду по коду приглашения.
      *

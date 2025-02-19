@@ -31,7 +31,8 @@ class MyTelegramBot(
 ) : SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
 
     private val telegramClient: TelegramClient = OkHttpTelegramClient(getBotToken())
-    private val userWaitingForTeamName = mutableSetOf<String>()
+    private val userWaitingForTeamName = mutableMapOf<String, String>() // userId -> chatId
+    private val userWaitingForDeletionConfirmation = mutableMapOf<String, Long>() // userId -> teamId
 
     override fun getUpdatesConsumer(): LongPollingUpdateConsumer = this
 
@@ -39,26 +40,98 @@ class MyTelegramBot(
 
     override fun consume(update: Update) {
         if (update.hasMessage() && update.message.hasText()) {
-            val messageText: String = update.message.text
+            val messageText: String = update.message.text.lowercase()
             val chatId: String = update.message.chatId.toString()
-            val userId: String = update.message.from.id.toString()
+            val userId: String = update.message.from.id.toString() // <-- теперь берём ID пользователя правильно!
 
-            when (messageText) {
-                "/старт" -> handleTeamCreation(chatId)
-                "/игры" -> handleGetEvents(chatId)
-                "/инфо" -> handleInfoCommand(chatId)
-                else -> return
+            when {
+                messageText == "/старт" -> handleTeamCreation(userId, chatId)
+                messageText == "/удалить_команду" -> handleDeleteTeamRequest(userId, chatId)
+                messageText == "/игры" -> handleGetEvents(userId)
+                messageText == "/инфо" -> handleInfoCommand(chatId)
+                userWaitingForTeamName.containsKey(userId) -> handleNewTeamName(userId, chatId, messageText)
+                userWaitingForDeletionConfirmation.containsKey(userId) -> handleDeleteConfirmation(userId, chatId, messageText)
             }
         }
     }
 
 
-    private fun handleTeamCreation(chatId: String) {
-        sendMessage(chatId, "Введите название команды:")
-        userWaitingForTeamName.add(chatId)
+    /**
+     * Проверяет, есть ли уже команда в чате. Если есть - выдаёт сообщение и ничего не делает.
+     */
+    private fun handleTeamCreation(userId: String, chatId: String) {
+        val existingTeam = teamService.getTeamByChatId(chatId)
+        if (existingTeam != null) {
+            sendMessage(chatId, "В чате уже есть команда: ${existingTeam.name}")
+            return
+        }
+
+        if (userWaitingForTeamName.containsKey(userId)) {
+            sendMessage(chatId, "Вы уже вводите название команды. Пожалуйста, отправьте название")
+            return
+        }
+
+        sendMessage(chatId, "Введите название вашей новой команды:")
+        userWaitingForTeamName[userId] = chatId
     }
 
+    /**
+     * Создаёт команду, если её нет, иначе сообщает, что такая команда уже существует.
+     */
+    private fun handleNewTeamName(userId: String, chatId: String, teamName: String) {
+        userWaitingForTeamName.remove(userId)
 
+        val existingTeam = teamService.getTeamByChatId(chatId)
+        if (existingTeam != null && existingTeam.name.equals(teamName, ignoreCase = true)) {
+            sendMessage(chatId, "Команда с таким названием уже есть в этом чате!")
+            return
+        }
+
+        try {
+            val newTeam = teamService.createTeam(teamName, chatId)
+            sendMessage(chatId, "Команда \"$teamName\" успешно создана! 🎉Код приглашения в команду для приложения: ${newTeam.inviteCode}")
+        } catch (e: Exception) {
+            sendMessage(chatId, "Ошибка создания команды: ${e.message}")
+        }
+    }
+
+    /**
+     * Запрашивает подтверждение удаления команды, если пользователь — админ.
+     */
+    private fun handleDeleteTeamRequest(userId: String, chatId: String) {
+        val team = teamService.getTeamByChatId(chatId)
+        val user = userService.getUserByTelegramId(userId)
+        if (team == null) {
+            sendMessage(chatId, "В этом чате нет зарегистрированной команды")
+            return
+        }
+
+        if (!userService.isUserAdmin(user!!.id, team.id)) {
+            sendMessage(chatId, "Удалить команду может только её администратор")
+            return
+        }
+
+        sendMessage(chatId, "Вы действительно хотите удалить команду \"${team.name}\"? Отправьте \"да\" для подтверждения.")
+        userWaitingForDeletionConfirmation[userId] = team.id
+    }
+
+    /**
+     * Подтверждает удаление команды. Если пользователь вводит "да", команда удаляется.
+     */
+    private fun handleDeleteConfirmation(userId: String, chatId: String, messageText: String) {
+        val teamId = userWaitingForDeletionConfirmation.remove(userId) ?: return
+
+        if (messageText == "да") {
+            try {
+                teamService.deleteTeamById(teamId)
+                sendMessage(chatId, "Команда успешно удалена! ❌")
+            } catch (e: Exception) {
+                sendMessage(chatId, "Ошибка удаления команды: ${e.message}")
+            }
+        } else {
+            sendMessage(chatId, "Удаление отменено.")
+        }
+    }
 
     private fun handleGetEvents(chatId: String) {
         val user = userService.getUserByTelegramId(chatId)
@@ -73,24 +146,15 @@ class MyTelegramBot(
         }
 
         if (user.teamMemberships.size == 1) {
-            // Если только одна команда
             val team = user.teamMemberships.first().team
             val events = eventService.getEventsByTeamId(team.id)
-            val eventsMessage = formatEventsMessage(events)
-            sendMessage(chatId, eventsMessage)
+            sendMessage(chatId, formatEventsMessage(events))
         } else {
-            // Если несколько команд, предложим выбрать команду
             val teamNames = user.teamMemberships.map { it.team.name }
-            val teamsMessage = "Вы состоите в нескольких командах. Выберите команду:\n" +
-                    teamNames.joinToString("\n") { it }
-
-            sendMessage(chatId, teamsMessage)
-            userWaitingForTeamName.add(chatId)
+            sendMessage(chatId, "Вы состоите в нескольких командах. Выберите команду:\n" + teamNames.joinToString("\n"))
+            userWaitingForTeamName[user.id.toString()] = chatId
         }
     }
-
-
-
 
     fun sendMessage(chatId: String, text: String) {
         val message = SendMessage.builder()
@@ -104,7 +168,6 @@ class MyTelegramBot(
         }
     }
 
-
     private fun formatEventsMessage(events: List<EventResponseDto>): String {
         return if (events.isEmpty()) {
             "На ближайшее время нет запланированных игр"
@@ -114,14 +177,12 @@ class MyTelegramBot(
         }
     }
 
-    /**
-    * Отправляет пользователю список доступных команд бота.
-    */
     private fun handleInfoCommand(chatId: String) {
         val infoMessage = """
         🤖 Доступные команды бота:
         
         🔹 `/старт` — Создать команду.
+        🔹 `/удалить_команду` — Удалить команду (только админ, требует подтверждения).
         🔹 `/игры` — Посмотреть список ближайших игр.
         🔹 `/инфо` — Показать этот список команд.
         
