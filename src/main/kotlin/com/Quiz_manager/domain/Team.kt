@@ -13,7 +13,7 @@ data class Team(
 
     val chatId: String,
 
-    @OneToMany(mappedBy = "team", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "team", cascade = [CascadeType.ALL], fetch = FetchType.EAGER, orphanRemoval = true)
     val teamMemberships: MutableList<TeamMembership> = mutableListOf()
 ) {
 

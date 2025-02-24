@@ -15,7 +15,7 @@ data class User(
     @OneToMany(mappedBy = "registrant", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
     val registrations: List<Registration> = mutableListOf(),
 
-    @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "user", cascade = [CascadeType.ALL], fetch = FetchType.EAGER)
     val teamMemberships: List<TeamMembership> = mutableListOf()
 ) {
 

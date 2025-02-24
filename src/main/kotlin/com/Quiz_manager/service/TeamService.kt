@@ -11,6 +11,7 @@ import com.Quiz_manager.enums.Role
 import com.Quiz_manager.mapper.toDto
 import com.Quiz_manager.mapper.toEntity
 import com.Quiz_manager.repository.*
+import jakarta.persistence.EntityNotFoundException
 import jakarta.transaction.Transactional
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -29,6 +30,7 @@ class TeamService(
      * @param chatId ID чата команды
      * @return созданная команда
      */
+    @Transactional
     fun createTeam(teamName: String, chatId: String): TeamResponseDto {
         var inviteCode: String
         do {
@@ -114,6 +116,7 @@ class TeamService(
      * @param updatedSettings новые настройки
      * @return обновленные настройки
      */
+    @Transactional
     fun updateTeamNotificationSettings(teamId: Long, updatedSettings: TeamNotificationSettings, currentUserId: Long): TeamNotificationSettingsCreationDto {
         val currentSettings = teamNotificationSettingsRepository.findByTeamId(teamId)
             ?: throw IllegalArgumentException("Настройки уведомлений для этой команды не найдены")
@@ -142,6 +145,7 @@ class TeamService(
      * @param team команда
      * @return настройки уведомлений
      */
+    @Transactional
     fun getTeamNotificationSettings(teamId: Long): TeamNotificationSettings {
         return teamNotificationSettingsRepository.findByTeamId(teamId)
             ?: throw IllegalArgumentException("Настройки уведомлений для этой команды не найдены")
@@ -164,9 +168,17 @@ class TeamService(
         return teamRepository.findByChatId(chatId)?.toDto()
     }
 
-    fun deleteTeamById(teamId: Long){
-        teamRepository.deleteById(teamId)
+    @Transactional
+    fun deleteTeamById(teamId: Long) {
+        val team = teamRepository.findById(teamId).orElseThrow { EntityNotFoundException("Team not found") }
+        team.teamMemberships.forEach { it.team = null }
+        team.teamMemberships.clear()
+        //teamMembershipRepository.deleteAll(team.teamMemberships)
+
+        teamRepository.delete(team)
     }
+
+
 
 
     /**
@@ -193,6 +205,7 @@ class TeamService(
      * @param role роль пользователя в команде
      * @return объект TeamMembership
      */
+    @Transactional
     fun addUserToTeam(userId: Long, teamId: Long, role: Role?): TeamMembership {
         val user = userService.getUserById(userId)
         val team = getTeamById(teamId).toEntity()
@@ -213,6 +226,7 @@ class TeamService(
      * @param user пользователь
      * @param team команда
      */
+    @Transactional
     fun removeUserFromTeam(userId: Long, teamId: Long) {
         val teamMembership = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
             ?: throw IllegalArgumentException("Пользователь не состоит в данной команде")
@@ -236,7 +250,7 @@ class TeamService(
      * @return список команд, в которых состоит пользователь
      */
     fun getAllTeamsByUser(userId: Long): List<TeamResponseDto> {
-        return teamMembershipRepository.findByUserId(userId).map { it.team.toDto() }
+        return teamMembershipRepository.findByUserId(userId).map { it.team!!.toDto() }
     }
 
 }

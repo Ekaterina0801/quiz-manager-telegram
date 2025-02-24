@@ -139,6 +139,13 @@ class TeamController(private val teamService: TeamService, private val userServi
         return ResponseEntity.ok(eventService.getEventsByTeamId(teamId))
     }
 
+    @DeleteMapping("/{teamId}")
+    fun deleteTeamById(@PathVariable teamId: Long): ResponseEntity<String>
+    {
+        teamService.deleteTeamById(teamId)
+        return ResponseEntity.ok("Команда с id ${teamId} успешно удалена")
+    }
+
     /**
      * Обновить настройки уведомлений команды.
      *

@@ -2,7 +2,9 @@ package com.Quiz_manager.controller
 
 import com.Quiz_manager.domain.Team
 import com.Quiz_manager.domain.User
+import com.Quiz_manager.dto.response.UserResponseDto
 import com.Quiz_manager.enums.Role
+import com.Quiz_manager.mapper.toDto
 import com.Quiz_manager.service.TelegramService
 import com.Quiz_manager.service.UserService
 import org.springframework.http.HttpStatus
@@ -45,8 +47,8 @@ class UserController(
      * Получает пользователя по Telegram ID.
      */
     @GetMapping("/telegram/{telegramId}")
-    fun getUserByTelegramId(@PathVariable telegramId: String): ResponseEntity<User?> {
-        return ResponseEntity.ok(userService.getUserByTelegramId(telegramId))
+    fun getUserByTelegramId(@PathVariable telegramId: String): ResponseEntity<UserResponseDto?> {
+        return ResponseEntity.ok(userService.getUserByTelegramId(telegramId)!!.toDto())
     }
 
 

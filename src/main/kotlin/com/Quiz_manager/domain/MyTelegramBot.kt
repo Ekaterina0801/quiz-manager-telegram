@@ -63,7 +63,6 @@ class MyTelegramBot(
     private fun handleNewTeamName(userId: String, chatId: String, teamName: String) {
         userWaitingForTeamName.remove(userId)
 
-        // Проверяем, есть ли уже команда с таким названием в чате
         val existingTeam = teamService.getTeamByChatId(chatId)
         if (existingTeam != null && existingTeam.name.equals(teamName, ignoreCase = true)) {
             sendMessage(chatId, "Команда с таким названием уже есть в этом чате!")
@@ -72,12 +71,6 @@ class MyTelegramBot(
 
         try {
             val newTeam = teamService.createTeam(teamName, chatId)
-            val chatAdmins = telegramService.getChatAdministrators(chatId)
-            val adminIds = chatAdmins.map { it.id.toString() }.toSet()
-            chatAdmins.forEach { admin ->
-                teamService.addUserToTeam(admin.id, newTeam.id, role=Role.ADMIN)
-            }
-
             sendMessage(
                 chatId,
                 "Команда \"$teamName\" успешно создана! 🎉\n" +
@@ -88,6 +81,7 @@ class MyTelegramBot(
             sendMessage(chatId, "Ошибка создания команды: ${e.message}")
         }
     }
+
 
 
 
@@ -136,25 +130,13 @@ class MyTelegramBot(
 
     private fun handleGetEvents(userId: String, chatId: String) {
         val user = userService.getUserByTelegramId(userId)
+        val team = teamService.getTeamByChatId(chatId)
         if (user == null) {
             sendMessage(chatId, "Вы не зарегистрированы")
             return
         }
-
-        if (user.teamMemberships.isEmpty()) {
-            sendMessage(chatId, "Вы не состоите ни в одной команде")
-            return
-        }
-
-        if (user.teamMemberships.size == 1) {
-            val team = user.teamMemberships.first().team
-            val events = eventService.getEventsByTeamId(team.id)
-            sendMessage(chatId, formatEventsMessage(events))
-        } else {
-            val teamNames = user.teamMemberships.map { it.team.name }
-            sendMessage(chatId, "Вы состоите в нескольких командах. Выберите команду:\n" + teamNames.joinToString("\n"))
-            userWaitingForTeamName[user.id.toString()] = chatId
-        }
+        val events = eventService.getEventsByTeamId(team!!.id)
+        sendMessage(chatId, formatEventsMessage(events))
     }
 
     fun sendMessage(chatId: String, text: String) {

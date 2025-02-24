@@ -228,7 +228,7 @@ class UserService(
      */
     fun getTeamsByUser(telegramId: String): List<Team> {
         val user = getUserByTelegramId(telegramId) ?: return emptyList()
-        return user.teamMemberships.map { it.team }
+        return user.teamMemberships.map { it.team!! }
     }
 
 
