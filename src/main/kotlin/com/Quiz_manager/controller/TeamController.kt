@@ -10,15 +10,16 @@ import com.Quiz_manager.enums.Role
 import com.Quiz_manager.mapper.toEntity
 import com.Quiz_manager.service.EventService
 import com.Quiz_manager.service.TeamService
-import com.Quiz_manager.service.TelegramService
 import com.Quiz_manager.service.UserService
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping("/api/teams")
 class TeamController(private val teamService: TeamService, private val userService: UserService,
-                     private val telegramService: TelegramService, private val eventService: EventService
+                    private val eventService: EventService
 ) {
 
     /**
@@ -31,9 +32,10 @@ class TeamController(private val teamService: TeamService, private val userServi
     @PostMapping
     fun createTeam(
         @RequestParam teamName: String,
-        @RequestParam chatId: String
+        @RequestParam chatId: String?,
+        @RequestParam userId: Long
     ): ResponseEntity<TeamResponseDto> {
-        return ResponseEntity.ok(teamService.createTeam(teamName, chatId))
+        return ResponseEntity.ok(teamService.createTeam(teamName, chatId, userId))
     }
 
     @GetMapping
@@ -79,10 +81,21 @@ class TeamController(private val teamService: TeamService, private val userServi
     @PostMapping("/{teamId}/addUser")
     fun addUserToTeam(
         @PathVariable teamId: Long,
-        @RequestParam userId: String,
+        @RequestParam userId: Long,
         @RequestParam role: Role
-    ): ResponseEntity<TeamMembershipResponseDto> {
-        return ResponseEntity.ok(telegramService.handleAddUserToTeam(userId, teamId, role))
+    ): ResponseEntity<String> {
+        teamService.addUserToTeam(userId, teamId, role)
+        return ResponseEntity.ok("Пользователь успешно добавлен в команду")
+    }
+
+    @PutMapping("/{teamId}/updateUserRole")
+    fun updateUserRole(
+        @PathVariable teamId: Long,
+        @RequestParam userId: Long,
+        @RequestParam role: Role
+    ): ResponseEntity<String> {
+        val result = userService.updateUserRole(userId, teamId, role)
+        return ResponseEntity.ok(result)
     }
 
     /**
@@ -100,6 +113,17 @@ class TeamController(private val teamService: TeamService, private val userServi
         return ResponseEntity.ok("Пользователь успешно удален из команды")
     }
 
+    @PutMapping("/{teamId}")
+    fun updateTeam(
+        @PathVariable teamId: Long,
+        @RequestParam(required = false) newName: String,
+        @RequestParam(required = false) newChatId: String?,
+        @RequestParam userId: Long
+    ): ResponseEntity<TeamResponseDto> {
+        val updated = teamService.updateTeam(teamId, newName, newChatId, userId)
+        return ResponseEntity.ok(updated)
+    }
+
     /**
      * Получить всех пользователей в команде.
      *
@@ -108,7 +132,6 @@ class TeamController(private val teamService: TeamService, private val userServi
      */
     @GetMapping("/{teamId}/users")
     fun getAllUsersInTeam(@PathVariable teamId: Long): ResponseEntity<List<UserResponseDto>> {
-        val team = teamService.getTeamById(teamId)
         return ResponseEntity.ok(teamService.getAllUsersInTeam(teamId))
     }
 
@@ -135,8 +158,13 @@ class TeamController(private val teamService: TeamService, private val userServi
     }
 
     @GetMapping("/{teamId}/events")
-    fun getAllEventsByTeamId(@PathVariable teamId: Long): ResponseEntity<List<EventResponseDto>>{
-        return ResponseEntity.ok(eventService.getEventsByTeamId(teamId))
+    fun getAllEventsByTeamId(
+        @PathVariable teamId: Long,
+        pageable: Pageable,
+        @RequestParam(required = false) search: String?
+    ): ResponseEntity<Page<EventResponseDto>> {
+        val page = eventService.getEventsByTeam(teamId, pageable, search)
+        return ResponseEntity.ok(page)
     }
 
     @DeleteMapping("/{teamId}")

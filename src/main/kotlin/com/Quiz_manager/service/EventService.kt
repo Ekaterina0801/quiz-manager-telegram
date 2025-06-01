@@ -2,21 +2,22 @@ package com.Quiz_manager.service
 
 import com.Quiz_manager.domain.Event
 import com.Quiz_manager.domain.Registration
-import com.Quiz_manager.domain.User
-import com.Quiz_manager.dto.request.EventCreationDto
 import com.Quiz_manager.dto.RegistrationData
+import com.Quiz_manager.dto.request.EventCreationDto
 import com.Quiz_manager.dto.response.EventResponseDto
-import com.Quiz_manager.mapper.toEntity
+import com.Quiz_manager.enums.Role
 import com.Quiz_manager.mapper.toResponseDto
 import com.Quiz_manager.repository.*
 import jakarta.transaction.Transactional
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
-import org.springframework.context.annotation.Lazy
+import org.springframework.data.domain.Page
+import org.springframework.data.domain.Pageable
+import org.springframework.security.access.AccessDeniedException
 
 import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
 import java.io.File
+import java.time.format.DateTimeFormatter
 
 @Service
 class EventService(
@@ -25,10 +26,10 @@ class EventService(
     private val registrationRepository: RegistrationRepository,
     private val userService: UserService,
     private val cloudinaryService: CloudinaryService,
-    @Lazy
-    private val telegramService: TelegramService,
     private val teamNotificationSettingsRepository: TeamNotificationSettingsRepository,
-    @Value("\${telegram.chat_id}") private val chatId: String, private val teamRepository: TeamRepository
+    private val chatId: String="",
+    private val teamRepository: TeamRepository, private val whatsAppNotificationService: WhatsAppNotificationService,
+    private val telegramService: TelegramService
 ) {
 
     private val logger = LoggerFactory.getLogger(EventService::class.java)
@@ -38,13 +39,25 @@ class EventService(
     fun getEventById(eventId: Long): EventResponseDto? =
         eventRepository.findById(eventId).orElse(null)?.toResponseDto()
 
+    fun getEventsByTeam(
+        teamId: Long,
+        pageable: Pageable,
+        search: String?
+    ): Page<EventResponseDto> {
+        val page = if (search.isNullOrBlank()) {
+            eventRepository.findByTeamId(teamId, pageable)
+        } else {
+            eventRepository.searchByNameIgnoreCaseNative(teamId, search, pageable)
+        }
+        return page.map { it.toResponseDto() }
+    }
+
 
     @Transactional
     fun createEvent(eventData: EventCreationDto): Event {
-        checkAdminAccess(eventData.userId, eventData.teamId)
+        userService.isUserModerator(eventData.userId, eventData.teamId)
         val imageUrl = uploadImageIfPresent(eventData.imageFile)
         val team = teamRepository.findById(eventData.teamId).orElse(null)
-        //val event = eventData.toEntity(team)
         val event = Event(
             id = null,
             name = eventData.name,
@@ -55,16 +68,18 @@ class EventService(
             teamResult = null,
             location = eventData.location,
             team = team,
-            isRegistrationOpen = true
+            isRegistrationOpen = true,
+            isHidden = false,
+            price = eventData.price
         )
 
         return eventRepository.save(event)
     }
 
     @Transactional
-    fun registerForEvent(eventId: Long, registrationData: RegistrationData): String {
+    fun registerForEvent(eventId: Long, registrationData: RegistrationData): Registration {
         val event = eventRepository.findById(eventId).orElseThrow { Exception("Event not found") }
-        val registrant = findOrCreateRegistrant(registrationData.telegramId)
+        val registrant = userService.getUserById(registrationData.userId)
 
         if (isUserAlreadyRegistered(eventId, registrationData.fullName)) {
             throw Exception("You are already registered for this event")
@@ -73,33 +88,35 @@ class EventService(
         val registration = Registration(event = event, registrant = registrant, fullName = registrationData.fullName)
         registrationRepository.save(registration)
 
-        sendEventNotification(event, registrationData.fullName, "registration")
-        return "Registration successful"
+        dispatchNotification(event, registration.fullName, "registration")
+        //sendEventNotification(event, registrationData.fullName, "registration")
+        return registration
     }
 
     @Transactional
-    fun unregisterFromEvent(eventId: Long, registrationId: Long, telegramId: String): String {
-        val event = eventRepository.findById(eventId).orElseThrow { Exception("Event not found") }
-        val registration = registrationRepository.findById(registrationId).orElseThrow()
-        val user = userRepository.findByTelegramId(telegramId)
-            ?: throw Exception("User not found")
+    fun unregisterFromEvent(eventId: Long, registrationId: Long, userId: Long): String {
+        val event = eventRepository.findById(eventId)
+            .orElseThrow { IllegalArgumentException("Event with id=$eventId not found") }
 
-        if (registration.registrant.telegramId != telegramId &&
-            !userService.isUserAdmin(user.id, event.team.id)
-        ) {
-            throw Exception("Access denied: you are not allowed to unregister this participant")
+        val registration = registrationRepository.findById(registrationId)
+            .orElseThrow { IllegalArgumentException("Registration with id=$registrationId not found") }
+
+        val user = userService.getUserById(userId)
+
+        val isModerator = userService.isUserModerator(user.id, event.team.id)
+        val isAdmin     = user.role == Role.ADMIN
+        val isOwner     = registration.registrant.id == userId
+
+        if (!(isOwner || isModerator || isAdmin)) {
+            throw AccessDeniedException("Access denied: you are not allowed to unregister this participant")
         }
+
         event.registrations.remove(registration)
         eventRepository.save(event)
         registrationRepository.delete(registration)
-        sendEventNotification(event, registration.fullName, "unregistration")
-        return "Unregistration successful"
-    }
 
-    private fun checkAdminAccess(userId: Long, teamId: Long) {
-        if (!userService.isUserAdmin(userId, teamId)) {
-            throw Exception("Access denied. Only admins can perform this action.")
-        }
+        dispatchNotification(event, registration.fullName, "unregistration")
+        return "Unregistration successful"
     }
 
     private fun uploadImageIfPresent(imageFile: MultipartFile?): String? {
@@ -111,34 +128,21 @@ class EventService(
     }
 
     private fun isUserAlreadyRegistered(eventId: Long, fullName: String): Boolean {
+        var p = registrationRepository.findByEventIdAndFullName(eventId, fullName);
         return registrationRepository.findByEventIdAndFullName(eventId, fullName) != null
-    }
-
-    private fun findOrCreateRegistrant(telegramId: String): User {
-        return userRepository.findByTelegramId(telegramId) ?: telegramService.getUserInfo(telegramId)?.let {
-            val newUser = User(
-                id = 0,
-                username = it.username ?: "unknown",
-                firstName = it.firstName,
-                lastName = it.lastName ?: "",
-                telegramId = telegramId
-            )
-            userRepository.save(newUser)
-        } ?: throw Exception("Failed to fetch user info from Telegram")
     }
 
     @Transactional
     fun deleteEvent(eventId: Long, userId: Long) {
         val event = eventRepository.findById(eventId).orElseThrow { Exception("Event not found") }
-        checkAdminAccess(userId, event.team.id)
-
+        userService.isUserModerator(userId, event.team.id)
         eventRepository.delete(event)
     }
 
     @Transactional
     fun updateEvent(eventId: Long, updatedEventData: EventCreationDto): Event {
         val event = eventRepository.findById(eventId).orElseThrow { Exception("Event not found") }
-        checkAdminAccess(updatedEventData.userId, event.team.id)
+        userService.isUserModerator(updatedEventData.userId, event.team.id)
 
         val imageUrl = uploadImageIfPresent(updatedEventData.imageFile) ?: event.posterUrl
 
@@ -150,7 +154,8 @@ class EventService(
             linkToAlbum = updatedEventData.linkToAlbum,
             teamResult = updatedEventData.teamResult,
             location = updatedEventData.location,
-            isRegistrationOpen = updatedEventData.isRegistrationOpen
+            isRegistrationOpen = updatedEventData.isRegistrationOpen,
+            price = updatedEventData.price
 
         )
 
@@ -158,27 +163,60 @@ class EventService(
     }
 
     @Transactional
-    private fun sendEventNotification(event: Event, participantFullName: String, notificationType: String) {
-        val teamNotificationSettings = teamNotificationSettingsRepository.findByTeamId(event.team.id)
-        if ((notificationType == "registration" && teamNotificationSettings!!.registrationNotificationEnabled) ||
-            (notificationType == "unregistration" && teamNotificationSettings!!.unregisterNotificationEnabled)
-        ) {
-            val actionMessage = when (notificationType) {
-                "registration" -> "✅ Регистрация на мероприятие!"
-                "unregistration" -> "❌ Отмена регистрации!"
-                else -> return
-            }
+    private fun dispatchNotification(
+        event: Event,
+        participantFullName: String? = null,
+        notificationType: String
+    ) {
+        val settings = teamNotificationSettingsRepository.findByTeamId(event.team.id) ?: return
+        val groupId = event.team.chatId ?: return
 
-            val message = "$actionMessage \n\n" +
-                    "📌 Мероприятие: ${event.name}\n" +
-                    "👤 Участник: $participantFullName\n\n" +
-                    "📅 Дата: ${event.dateTime}\n\n"
-
-            telegramService.sendMessageToChannel(chatId, message)
+        when (notificationType) {
+            "registration"   -> if (settings.registrationNotificationEnabled)
+                sendRegistrationNotification(event, participantFullName!!, groupId, true)
+            "unregistration" -> if (settings.unregisterNotificationEnabled)
+                sendRegistrationNotification(event, participantFullName!!, groupId, false)
+            "summary"        -> sendEventSummary(event, groupId)
         }
     }
 
-    fun getEventsByTeamId(teamId: Long): List<EventResponseDto> {
-        return eventRepository.findByTeamId(teamId).map { x->x.toResponseDto() }
+    fun sendRegistrationNotification(
+        event: Event,
+        participantFullName: String,
+        groupId: String,
+        isRegistration: Boolean
+    ) {
+        val emoji = if (isRegistration) "✅" else "❌"
+        val action = if (isRegistration) "Регистрация" else "Отмена регистрации"
+        val formattedDate = event.dateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
+
+        val text = buildString {
+            append("$emoji *$action на мероприятие!* \n\n")
+            append("📌 *Мероприятие:* ${event.name}\n")
+            append("👤 *Участник:* $participantFullName\n")
+            append("📅 *Когда:* $formattedDate\n")
+            append("📍 *Где:* ${event.location}\n")
+            event.linkToAlbum?.let { append("🖼️ *Альбом:* $it\n") }
+        }
+
+        telegramService.sendMessageToChat(groupId, text)
     }
+
+    fun sendEventSummary(event: Event, groupId: String) {
+        val formattedDate = event.dateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
+        val participants = event.registrations
+            .joinToString("\n") { "- ${it.fullName}" }
+            .ifBlank { "— нет зарегистрированных участников" }
+
+        val text = buildString {
+            append("📌 Что: ${event.name}\n")
+            append("📍 Где: ${event.location}\n\n")
+            append("📅 Когда: $formattedDate\n")
+            append("\uD83E\uDD11 Стоимость: ${event.price} руб. \n")
+            append("👥 Участники:\n$participants\n")
+        }
+
+        telegramService.sendMessageToChat(groupId, text)
+    }
+
 }

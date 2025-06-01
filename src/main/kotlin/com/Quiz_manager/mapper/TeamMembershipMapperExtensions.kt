@@ -8,7 +8,7 @@ import com.Quiz_manager.dto.response.TeamMembershipResponseDto
 fun TeamMembership.toDto(): TeamMembershipResponseDto {
     return TeamMembershipResponseDto(
         id = this.id,
-        userId = this.user.id,
+        user = this.user.toDto(),
         teamId = this.team!!.id,
         role = this.role
     )

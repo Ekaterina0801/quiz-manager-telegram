@@ -23,7 +23,9 @@ fun EventCreationDto.toEntity(team: Team): Event {
         posterUrl = imageUrl,
         linkToAlbum = this.linkToAlbum,
         teamResult = this.teamResult,
-        team = team
+        team = team,
+        isHidden = this.isHidden,
+        price = this.price
     )
 }
 
@@ -42,6 +44,7 @@ fun Event.toResponseDto(): EventResponseDto {
         teamResult = this.teamResult,
         teamId = this.team.id!!,
         isRegistrationOpen = this.isRegistrationOpen,
+        price = this.price ?: "",
         registrations = this.registrations.map { it.toDto() }.toMutableList()
     )
 }

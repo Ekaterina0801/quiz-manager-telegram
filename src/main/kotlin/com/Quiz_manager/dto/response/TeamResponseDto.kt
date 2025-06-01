@@ -6,7 +6,7 @@ data class TeamResponseDto (
 
     val inviteCode: String,
 
-    val chatId: String,
+    val chatId: String?,
 
     val teamMemberships: MutableList<TeamMembershipResponseDto> = mutableListOf()
 )

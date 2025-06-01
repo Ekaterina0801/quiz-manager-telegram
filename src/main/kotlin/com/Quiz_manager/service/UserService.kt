@@ -7,58 +7,82 @@ import com.Quiz_manager.enums.Role
 import com.Quiz_manager.repository.TeamMembershipRepository
 import com.Quiz_manager.repository.TeamRepository
 import com.Quiz_manager.repository.UserRepository
-import org.springframework.context.annotation.Lazy
+import jakarta.persistence.EntityNotFoundException
+import org.springframework.dao.DataIntegrityViolationException
+import org.springframework.security.core.userdetails.UsernameNotFoundException
 import org.springframework.stereotype.Service
+import java.nio.file.AccessDeniedException
+import java.security.Principal
 
 
 @Service
 class UserService(
     private val userRepository: UserRepository,
     private val teamRepository: TeamRepository,
-    private val teamMembershipRepository: TeamMembershipRepository, @Lazy private val telegramService: TelegramService
+    private val teamMembershipRepository: TeamMembershipRepository,
 ) {
 
     fun getUserById(userId: Long): User {
         return userRepository.findById(userId).orElseThrow { Exception("Пользователь с ID $userId не найден") }
     }
 
-    fun findOrCreateUser(telegramId: String): User {
-        return userRepository.findByTelegramId(telegramId)
-            ?: telegramService.getUserInfo(telegramId)?.let { telegramUser ->
-                createUser(
-                    username = telegramUser.username ?: telegramId,
-                    firstName = telegramUser.firstName,
-                    lastName = telegramUser.lastName,
-                    telegramId = telegramId
-                )
-            } ?: throw IllegalStateException("Не удалось создать пользователя для Telegram ID: $telegramId")
+    @Throws(DataIntegrityViolationException::class)
+    fun findByUsername(username: String): User? {
+        val user = userRepository.findByUsername(username)
+        return user
     }
 
-
-    fun getTeamById(teamId: Long): Team {
-        return teamRepository.findById(teamId).orElseThrow { Exception("Команда с ID $teamId не найдена") }
+    fun getCurrentUser(principal: Principal?): User {
+        val username = principal?.name
+            ?: throw UsernameNotFoundException("Нет аутентифицированного пользователя")
+        return userRepository.findByUsername(username)
+            ?: throw UsernameNotFoundException("Пользователь $username не найден")
     }
+
+    @Throws(DataIntegrityViolationException::class)
+    fun findByEmail(email: String): User? {
+        val user = userRepository.findByEmail(email)
+        return user
+    }
+
+    fun findOrCreateUser(user: User): User {
+        if (userRepository.findByUsername(user.username)!=null) {
+            throw DataIntegrityViolationException("Пользователь с таким именем уже существует")
+        }
+        if (userRepository.findByEmail(user.username)!=null) {
+            throw DataIntegrityViolationException("Пользователь с таким email уже существует")
+        }
+        return userRepository.save(user)
+    }
+
 
     fun getAllMembersOfTeam(teamId: Long): List<User> {
         return teamMembershipRepository.findByTeamId(teamId).map { it.user }
     }
 
-    fun isUserAdmin(userId: Long, teamId: Long): Boolean {
-        val user = userRepository.findById(userId).orElseThrow { Exception("Пользователь с ID $userId не найден") }
-        val team = teamRepository.findById(teamId).orElseThrow { Exception("Команда с ID $teamId не найдена") }
-        val teamMembership = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
-            ?: throw Exception("Пользователь ${user.username} не состоит в команде ${team.name}")
+    fun isUserModerator(userId: Long, teamId: Long): Boolean {
+        val user = userRepository.findById(userId)
+            .orElseThrow { EntityNotFoundException("Пользователь с ID $userId не найден") }
 
-        return teamMembership.role == Role.ADMIN
+        if (user.role == Role.ADMIN) {
+            return true
+        }
+
+        val team = teamRepository.findById(teamId)
+            .orElseThrow { EntityNotFoundException("Команда с ID $teamId не найдена") }
+
+        val membership = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
+            ?: throw AccessDeniedException("Пользователь ${user.username} не состоит в команде ${team.name}")
+
+        return membership.role == Role.MODERATOR
     }
 
-    fun assignAdminRole(userId: Long, teamId: Long): String {
-        return updateUserRole(userId, teamId, Role.ADMIN)
+    fun isUserAdmin(userId: Long): Boolean {
+        val user = userRepository.findById(userId)
+            .orElseThrow { EntityNotFoundException("Пользователь с ID $userId не найден") }
+        return user.role == Role.ADMIN
     }
 
-    fun revokeAdminRole(userId: Long, teamId: Long): String {
-        return updateUserRole(userId, teamId, Role.USER)
-    }
 
     fun getUserRoleInTeam(userId: Long, teamId: Long): Role {
         val user = userRepository.findById(userId).orElseThrow { Exception("Пользователь с ID $userId не найден") }
@@ -75,34 +99,28 @@ class UserService(
         return teamMembershipRepository.existsByTeamIdAndUserId(teamId, userId)
     }
 
-    fun getAdminsByTeam(teamId: Long): List<User>? {
+    fun getModeratorsByTeam(teamId: Long): List<User>? {
         val team = teamRepository.findById(teamId).orElseThrow { Exception("Команда с ID $teamId не найдена") }
-
-
-        val admins = teamMembershipRepository.findByTeamIdAndRole(teamId, Role.ADMIN)
+        val moderators = teamMembershipRepository.findByTeamIdAndRole(teamId, Role.ADMIN)
             ?.map { it.user }
 
-        return admins
+        return moderators
     }
-
-
 
     /**
      * Регистрирует пользователя в команду по inviteCode.
      *
-     * @param telegramId идентификатор пользователя в Telegram
+     * @param userId идентификатор пользователя
      * @param inviteCode код для присоединения к команде
      * @return пользователь или null, если команда не найдена
      */
-    fun registerUserToTeam(telegramId: String, inviteCode: String): User? {
-        val user = getUserByTelegramId(telegramId) ?: return null
+    fun registerUserToTeam(userId: Long, inviteCode: String): User? {
+        val user = getUserById(userId)
         val team = teamRepository.findByInviteCode(inviteCode) ?: return null
-
 
         if (user.teamMemberships.any { it.team == team }) {
             return user
         }
-
 
         val teamMembership = TeamMembership(user = user, team = team)
         teamMembershipRepository.save(teamMembership)
@@ -113,12 +131,12 @@ class UserService(
     /**
      * Удаляет пользователя из команды.
      *
-     * @param telegramId идентификатор пользователя в Telegram
+     * @param userId идентификатор пользователя
      * @param inviteCode код команды
      * @return сообщение об успешном удалении или ошибке
      */
-    fun removeUserFromTeam(telegramId: String, inviteCode: String): String {
-        val user = getUserByTelegramId(telegramId) ?: return "Пользователь не найден"
+    fun removeUserFromTeam(userId: Long, inviteCode: String): String {
+        val user = getUserById(userId)
         val team = teamRepository.findByInviteCode(inviteCode) ?: return "Команда не найдена"
 
         val teamMembership = teamMembershipRepository.findByTeamIdAndUserId(team.id, user.id)
@@ -127,40 +145,6 @@ class UserService(
         teamMembershipRepository.delete(teamMembership)
         return "Пользователь успешно удален из команды"
     }
-
-    /**
-     * Создает нового пользователя.
-     *
-     * @param username имя пользователя
-     * @param firstName имя
-     * @param lastName фамилия
-     * @param telegramId Telegram ID пользователя
-     * @return созданный пользователь
-     */
-    fun createUser(username: String, firstName: String?, lastName: String?, telegramId: String): User {
-        return userRepository.save(
-            User(
-                id = 0L,
-                username = username,
-                firstName = firstName,
-                lastName = lastName,
-                telegramId = telegramId
-            )
-        )
-    }
-
-    fun createUserByTelegramId(telegramId: String): User {
-        return userRepository.findByTelegramId(telegramId)
-            ?: telegramService.getUserInfo(telegramId)?.let { telegramUser ->
-                createUser(
-                    username = telegramUser.username ?: telegramId,
-                    firstName = telegramUser.firstName,
-                    lastName = telegramUser.lastName,
-                    telegramId = telegramId
-                )
-            } ?: throw IllegalStateException("Не удалось создать пользователя для Telegram ID: $telegramId")
-    }
-
 
     /**
      * Удаляет пользователя.
@@ -175,15 +159,6 @@ class UserService(
         return "Пользователь ${user.username} был удален."
     }
 
-    /**
-     * Получает пользователя по Telegram ID.
-     *
-     * @param telegramId Telegram ID пользователя
-     * @return пользователь или null, если не найден
-     */
-    fun getUserByTelegramId(telegramId: String): User? {
-        return userRepository.findByTelegramId(telegramId)
-    }
 
     /**
      * Обновляет информацию о пользователе.
@@ -194,10 +169,12 @@ class UserService(
      * @return обновленный пользователь
      * @throws Exception если пользователь не найден
      */
-    fun updateUserInfo(userId: Long, firstName: String?, lastName: String?): User {
+    fun updateUser(userId: Long, fullname: String?, role: Role?): User {
         val user = userRepository.findById(userId).orElseThrow { Exception("Пользователь не найден") }
-        user.firstName = firstName
-        user.lastName = lastName
+        if (fullname!=null)
+            user.fullname = fullname
+        if (role!=null)
+            user.role = role
         return userRepository.save(user)
     }
 
@@ -211,23 +188,13 @@ class UserService(
     }
 
     /**
-     * Находит пользователя по Telegram ID.
-     *
-     * @param telegramId Telegram ID пользователя
-     * @return пользователь или null, если не найден
-     */
-    fun findByTelegramId(telegramId: String): User? {
-        return userRepository.findByTelegramId(telegramId)
-    }
-
-    /**
      * Получает все команды, в которых состоит пользователь.
      *
-     * @param telegramId идентификатор пользователя в Telegram
+     * @param userId идентификатор пользователя
      * @return список команд, в которых состоит пользователь
      */
-    fun getTeamsByUser(telegramId: String): List<Team> {
-        val user = getUserByTelegramId(telegramId) ?: return emptyList()
+    fun getTeamsByUser(userId: Long): List<Team> {
+        val user = getUserById(userId)
         return user.teamMemberships.map { it.team!! }
     }
 

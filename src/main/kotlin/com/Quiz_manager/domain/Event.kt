@@ -8,6 +8,7 @@ import java.time.LocalDateTime
 data class Event(
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long? = null,
+    @Column(columnDefinition = "TEXT COLLATE NOCASE")
     val name: String,
     val dateTime: LocalDateTime,
     val location: String,
@@ -16,6 +17,8 @@ data class Event(
     val linkToAlbum: String?,
     val teamResult: String?,
     val isRegistrationOpen: Boolean,
+    val isHidden: Boolean,
+    val price: String?,
 
     @ManyToOne
     @JoinColumn(name = "team_id", nullable = false)

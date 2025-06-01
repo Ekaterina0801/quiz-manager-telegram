@@ -14,8 +14,7 @@ import java.time.LocalDateTime
 @EnableScheduling
 class ReminderService(
     private val eventRepository: EventRepository,
-    private val telegramService: TelegramService,
-    private val teamNotificationSettingsRepository: TeamNotificationSettingsRepository
+    private val teamNotificationSettingsRepository: TeamNotificationSettingsRepository, private val telegramService: TelegramService
 ) {
 
     /**
@@ -49,7 +48,7 @@ class ReminderService(
      * @param event мероприятие
      * @param chatId ID Telegram-чата команды
      */
-    private fun sendEventReminder(event: Event, chatId: String) {
+    private fun sendEventReminder(event: Event, chatId: String?) {
         val participants = event.registrations
             .joinToString(separator = "\n") { "👤 ${it.fullName}" }
 
@@ -66,7 +65,7 @@ class ReminderService(
         $participants
     """.trimIndent()
 
-        telegramService.sendMessageToChannel(chatId, message)
+        //telegramService.sendMessageToChannel(chatId, message)
     }
 
 }

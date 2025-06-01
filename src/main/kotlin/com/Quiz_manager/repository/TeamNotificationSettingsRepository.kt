@@ -11,4 +11,5 @@ interface TeamNotificationSettingsRepository : JpaRepository<TeamNotificationSet
     fun findByTeamId(teamId: Long): TeamNotificationSettings?
 
     fun deleteByTeamId(teamId: Long)
+
 }

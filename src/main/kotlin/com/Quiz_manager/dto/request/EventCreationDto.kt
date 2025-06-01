@@ -20,5 +20,9 @@ data class EventCreationDto(
 
     val isRegistrationOpen: Boolean,
 
-    var imageFile: MultipartFile? = null
+    var imageFile: MultipartFile? = null,
+
+    var isHidden: Boolean = false,
+
+    var price: String?
 )

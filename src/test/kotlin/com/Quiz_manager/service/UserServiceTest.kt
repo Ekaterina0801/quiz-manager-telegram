@@ -3,7 +3,6 @@ package com.Quiz_manager.service
 import com.Quiz_manager.domain.Team
 import com.Quiz_manager.domain.TeamMembership
 import com.Quiz_manager.domain.User
-import com.Quiz_manager.dto.TelegramUser
 import com.Quiz_manager.repository.TeamMembershipRepository
 import com.Quiz_manager.repository.TeamRepository
 import com.Quiz_manager.repository.UserRepository

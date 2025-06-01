@@ -9,9 +9,10 @@ fun User.toDto(): UserResponseDto {
     return UserResponseDto(
         id = this.id,
         username = this.username,
-        firstName = this.firstName,
-        lastName = this.lastName,
-        telegramId = this.telegramId
+        fullName = this.fullname,
+        password = this.password,
+        email = this.email,
+        role = this.role
     )
 }
 
@@ -22,10 +23,10 @@ fun UserResponseDto.toEntity(
     return User(
         id = this.id,
         username = this.username,
-        firstName = this.firstName,
-        lastName = this.lastName,
-        telegramId = this.telegramId,
-        registrations = registrations,
-        teamMemberships = teamMemberships
+        fullname = this.fullName,
+        password = this.password,
+        email = this.email,
+        role = this.role,
+        registrations = registrations
     )
 }

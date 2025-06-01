@@ -2,33 +2,29 @@ package com.Quiz_manager.controller
 
 import com.Quiz_manager.domain.Team
 import com.Quiz_manager.domain.User
+import com.Quiz_manager.dto.request.UserDto
 import com.Quiz_manager.dto.response.UserResponseDto
 import com.Quiz_manager.enums.Role
 import com.Quiz_manager.mapper.toDto
-import com.Quiz_manager.service.TelegramService
 import com.Quiz_manager.service.UserService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import java.security.Principal
+
 
 @RestController
 @RequestMapping("/api/users")
 class UserController(
-    private val userService: UserService,
-    private val telegramService: TelegramService
+    private val userService: UserService
 ) {
 
-    /**
-     * Создает пользователя по Telegram ID.
-     */
-    @PostMapping("/create/{telegramId}")
-    fun createUserByTelegramId(@PathVariable telegramId: String): ResponseEntity<User> {
-        return try {
-            val user = userService.createUserByTelegramId(telegramId)
-            ResponseEntity.ok(user)
-        } catch (e: Exception) {
-            ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null)
-        }
+
+
+    @GetMapping("/me")
+    fun getCurrentUser(principal: Principal?): ResponseEntity<UserResponseDto> {
+        val user = userService.getCurrentUser(principal)
+        return ResponseEntity.ok(user.toDto())
     }
 
     /**
@@ -41,14 +37,6 @@ class UserController(
         } catch (e: Exception) {
             ResponseEntity.status(HttpStatus.NOT_FOUND).body(null)
         }
-    }
-
-    /**
-     * Получает пользователя по Telegram ID.
-     */
-    @GetMapping("/telegram/{telegramId}")
-    fun getUserByTelegramId(@PathVariable telegramId: String): ResponseEntity<UserResponseDto?> {
-        return ResponseEntity.ok(userService.getUserByTelegramId(telegramId)!!.toDto())
     }
 
 
@@ -78,11 +66,11 @@ class UserController(
     @PutMapping("/{userId}/update")
     fun updateUserInfo(
         @PathVariable userId: Long,
-        @RequestParam firstName: String?,
-        @RequestParam lastName: String?
+        @RequestParam fullname: String?,
+        @RequestParam role: Role?
     ): ResponseEntity<User> {
         return try {
-            ResponseEntity.ok(userService.updateUserInfo(userId, firstName, lastName))
+            ResponseEntity.ok(userService.updateUser(userId, fullname, role))
         } catch (e: Exception) {
             ResponseEntity.status(HttpStatus.NOT_FOUND).body(null)
         }
@@ -91,31 +79,31 @@ class UserController(
     /**
      * Получает список всех команд, в которых состоит пользователь.
      */
-    @GetMapping("/{telegramId}/teams")
-    fun getTeamsByUser(@PathVariable telegramId: String): ResponseEntity<List<Team>> {
-        return ResponseEntity.ok(userService.getTeamsByUser(telegramId))
+    @GetMapping("/{userId}/teams")
+    fun getTeamsByUser(@PathVariable userId: Long): ResponseEntity<List<Team>> {
+        return ResponseEntity.ok(userService.getTeamsByUser(userId))
     }
 
     /**
      * Добавляет пользователя в команду.
      */
-    @PostMapping("/{telegramId}/join")
+    @PostMapping("/{userId}/join")
     fun registerUserToTeam(
-        @PathVariable telegramId: String,
+        @PathVariable userId: Long,
         @RequestParam inviteCode: String
     ): ResponseEntity<User?> {
-        return ResponseEntity.ok(userService.registerUserToTeam(telegramId, inviteCode))
+        return ResponseEntity.ok(userService.registerUserToTeam(userId, inviteCode))
     }
 
     /**
      * Удаляет пользователя из команды.
      */
-    @DeleteMapping("/{telegramId}/leave")
+    @DeleteMapping("/{userId}/leave")
     fun removeUserFromTeam(
-        @PathVariable telegramId: String,
+        @PathVariable userId: Long,
         @RequestParam inviteCode: String
     ): ResponseEntity<String> {
-        return ResponseEntity.ok(userService.removeUserFromTeam(telegramId, inviteCode))
+        return ResponseEntity.ok(userService.removeUserFromTeam(userId, inviteCode))
     }
 
     /**
@@ -134,7 +122,14 @@ class UserController(
         @PathVariable userId: Long,
         @PathVariable teamId: Long
     ): ResponseEntity<Boolean> {
-        return ResponseEntity.ok(userService.isUserAdmin(userId, teamId))
+        return ResponseEntity.ok(userService.isUserModerator(userId, teamId))
+    }
+
+    @GetMapping("/{userId}/isAdmin")
+    fun isUserMainAdmin(
+        @PathVariable userId: Long
+    ): ResponseEntity<Boolean> {
+        return ResponseEntity.ok(userService.isUserAdmin(userId))
     }
 
     /**
@@ -148,46 +143,6 @@ class UserController(
         return ResponseEntity.ok(userService.getUserRoleInTeam(userId, teamId))
     }
 
-    /**
-     * Обновляет роль пользователя в команде.
-     */
-    @PutMapping("/{userId}/team/{teamId}/updateRole")
-    fun updateUserRole(
-        @PathVariable userId: Long,
-        @PathVariable teamId: Long,
-        @RequestParam newRole: Role
-    ): ResponseEntity<String> {
-        return ResponseEntity.ok(userService.updateUserRole(userId, teamId, newRole))
-    }
 
-    /**
-     * Назначает пользователя администратором команды.
-     */
-    @PutMapping("/{userId}/team/{teamId}/assignAdmin")
-    fun assignAdminRole(
-        @PathVariable userId: Long,
-        @PathVariable teamId: Long
-    ): ResponseEntity<String> {
-        return ResponseEntity.ok(userService.assignAdminRole(userId, teamId))
-    }
-
-    /**
-     * Убирает у пользователя права администратора.
-     */
-    @PutMapping("/{userId}/team/{teamId}/revokeAdmin")
-    fun revokeAdminRole(
-        @PathVariable userId: Long,
-        @PathVariable teamId: Long
-    ): ResponseEntity<String> {
-        return ResponseEntity.ok(userService.revokeAdminRole(userId, teamId))
-    }
-
-    /**
-     * Получает всех администраторов команды.
-     */
-    @GetMapping("/team/{teamId}/admins")
-    fun getAdminsByTeam(@PathVariable teamId: Long): ResponseEntity<List<User>?> {
-        return ResponseEntity.ok(userService.getAdminsByTeam(teamId))
-    }
 }
 

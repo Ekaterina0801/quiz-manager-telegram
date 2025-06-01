@@ -12,5 +12,6 @@ data class EventResponseDto (
     val teamResult: String?,
     val isRegistrationOpen: Boolean,
     val teamId: Long,
+    val price: String?,
     val registrations: MutableList<RegistrationResponseDto> = mutableListOf(),
 )

@@ -3,8 +3,11 @@ package com.Quiz_manager.repository
 import com.Quiz_manager.domain.TeamMembership
 import com.Quiz_manager.enums.Role
 import org.springframework.data.jpa.repository.JpaRepository
+import org.springframework.data.jpa.repository.Modifying
 import org.springframework.stereotype.Repository
 import org.springframework.data.jpa.repository.Query
+import org.springframework.data.repository.query.Param
+
 @Repository
 interface TeamMembershipRepository : JpaRepository<TeamMembership, Long> {
 
@@ -31,4 +34,12 @@ interface TeamMembershipRepository : JpaRepository<TeamMembership, Long> {
 
     @Query("SELECT tm FROM TeamMembership tm WHERE tm.team.chatId = :chatId")
     fun findByTeamChatId(chatId: Long): List<TeamMembership>
+
+
+    @Modifying
+    @Query("delete from TeamMembership m where m.team.id   = :teamId and m.user.id   = :userId")
+    fun deleteByTeamIdAndUserId(
+        @Param("teamId") teamId: Long,
+        @Param("userId") userId: Long
+    ): Int
 }

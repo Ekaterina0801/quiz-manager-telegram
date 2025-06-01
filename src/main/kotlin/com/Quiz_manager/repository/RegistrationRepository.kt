@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository
 
 interface RegistrationRepository : JpaRepository<Registration, Long> {
     fun findByEventIdAndFullName(eventId: Long, fullName: String): Registration?
+
+    fun findByEventId(eventId: Long): List<Registration>
 }

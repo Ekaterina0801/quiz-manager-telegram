@@ -16,7 +16,7 @@ data class TeamNotificationSettings(
     var registrationNotificationEnabled: Boolean = true,
     var unregisterNotificationEnabled: Boolean = true,
     var eventReminderEnabled: Boolean = true,
-    var registrationReminderHoursBeforeEvent: Int = 24 // Часов до мероприятия для напоминания
+    var registrationReminderHoursBeforeEvent: Int = 24
 ) {
     final override fun equals(other: Any?): Boolean {
         if (this === other) return true

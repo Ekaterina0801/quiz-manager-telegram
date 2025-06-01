@@ -7,11 +7,11 @@ data class Team(
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     val id: Long,
 
-    val name: String,
+    var name: String,
 
     val inviteCode: String,
 
-    val chatId: String,
+    var chatId: String?,
 
     @OneToMany(mappedBy = "team", cascade = [CascadeType.ALL], fetch = FetchType.EAGER, orphanRemoval = true)
     val teamMemberships: MutableList<TeamMembership> = mutableListOf()

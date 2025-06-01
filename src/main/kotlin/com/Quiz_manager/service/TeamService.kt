@@ -20,26 +20,27 @@ class TeamService(
     private val teamRepository: TeamRepository,
     private val teamMembershipRepository: TeamMembershipRepository,
     private val teamNotificationSettingsRepository: TeamNotificationSettingsRepository,
-    private val inviteCodeGeneratorService: InviteCodeGeneratorService, private val telegramService: TelegramService,
+    private val inviteCodeGeneratorService: InviteCodeGeneratorService,
     private val userService: UserService, private val userRepository: UserRepository
 ) {
-    /**
-     * Создает новую команду с настройками по умолчанию.
-     *
-     * @param teamName название команды
-     * @param chatId ID чата команды
-     * @return созданная команда
-     */
     @Transactional
-    fun createTeam(teamName: String, chatId: String): TeamResponseDto {
+    fun createTeam(teamName: String, chatId: String?, creatorUserId: Long): TeamResponseDto {
+        // 1) сгенерировать уникальный inviteCode
         var inviteCode: String
         do {
             inviteCode = inviteCodeGeneratorService.generateInviteCode()
         } while (teamRepository.existsByInviteCode(inviteCode))
 
-        val team = Team(id = 0L, name = teamName, inviteCode = inviteCode, chatId = chatId)
+        // 2) сохранить команду
+        val team = Team(
+            id = 0L,
+            name = teamName,
+            inviteCode = inviteCode,
+            chatId = chatId
+        )
         val savedTeam = teamRepository.save(team)
 
+        // 3) создать настройки уведомлений по умолчанию
         val defaultSettings = TeamNotificationSettings(
             team = savedTeam,
             registrationNotificationEnabled = true,
@@ -48,65 +49,18 @@ class TeamService(
             registrationReminderHoursBeforeEvent = 24
         )
         teamNotificationSettingsRepository.save(defaultSettings)
-        syncChatAdminsWithTeam(savedTeam.id)
+
+        // 4) добавить создателя в состав команды с ролью MODERATOR
+        val creator = userService.getUserById(creatorUserId)
+        val membership = TeamMembership(
+            team = savedTeam,
+            user = creator,
+            role = Role.MODERATOR
+        )
+        teamMembershipRepository.save(membership)
+
         return savedTeam.toDto()
     }
-
-    @Scheduled(fixedRate = 24 * 60 * 60 * 1000)
-    fun syncAllTeamsAdmins() {
-        val teams = teamRepository.findAll()
-        teams.forEach { team ->
-            syncChatAdminsWithTeam(team.id)
-        }
-    }
-
-    /**
-     * Синхронизирует администраторов чата с командой.
-     * Назначает всех администраторов чата администраторами команды.
-     *
-     * @param teamId ID команды
-     */
-    @Transactional
-    fun syncChatAdminsWithTeam(teamId: Long) {
-        val team = teamRepository.findById(teamId).orElseThrow { IllegalArgumentException("Команда не найдена") }
-        val chatId = team.chatId
-
-        val chatAdmins = telegramService.getChatAdministrators(chatId)
-        val adminIds = chatAdmins.map { it.id.toString() }.toSet()
-
-        val existingAdmins = teamMembershipRepository.findByTeamIdAndRole(teamId, Role.ADMIN)
-        val existingAdminIds = existingAdmins?.map { it.user.telegramId }?.toSet()
-
-
-        chatAdmins.forEach { admin ->
-            val user = userService.findOrCreateUser(admin.id.toString())
-
-            teamMembershipRepository.findByTeamIdAndUserId(teamId, user.id)?.let { existingMembership ->
-                if (existingMembership.role != Role.ADMIN) {
-                    existingMembership.role = Role.ADMIN
-                    teamMembershipRepository.save(existingMembership)
-                }
-            } ?: run {
-                teamMembershipRepository.save(
-                    TeamMembership(
-                        user = user,
-                        team = team,
-                        role = Role.ADMIN
-                    )
-                )
-            }
-        }
-
-        val removedAdmins = existingAdmins?.filter { it.user.telegramId !in adminIds }
-
-        if (removedAdmins != null) {
-            removedAdmins.forEach { membership ->
-                membership.role = Role.USER
-                teamMembershipRepository.save(membership)
-            }
-        }
-    }
-
 
 
     /**
@@ -228,9 +182,10 @@ class TeamService(
      */
     @Transactional
     fun removeUserFromTeam(userId: Long, teamId: Long) {
-        val teamMembership = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
-            ?: throw IllegalArgumentException("Пользователь не состоит в данной команде")
-        teamMembershipRepository.delete(teamMembership)
+        val removedCount = teamMembershipRepository.deleteByTeamIdAndUserId(teamId, userId)
+        if (removedCount == 0) {
+            throw IllegalArgumentException("Пользователь с ID $userId не состоит в команде $teamId")
+        }
     }
 
     /**
@@ -252,5 +207,40 @@ class TeamService(
     fun getAllTeamsByUser(userId: Long): List<TeamResponseDto> {
         return teamMembershipRepository.findByUserId(userId).map { it.team!!.toDto() }
     }
+
+    @Transactional
+    fun renameTeam(teamId: Long, newName: String): TeamResponseDto {
+        val team = teamRepository.findById(teamId)
+            .orElseThrow { IllegalArgumentException("Команда не найдена: $teamId") }
+        team.name = newName
+        val saved = teamRepository.save(team)
+        return saved.toDto()
+    }
+
+    @Transactional
+    fun updateTeam(
+        teamId: Long,
+        newName: String,
+        newChatId: String?,
+        currentUserId: Long
+    ): TeamResponseDto {
+
+        val isModerator = teamMembershipRepository
+            .existsByTeamIdAndUserIdAndRole(teamId, currentUserId, Role.MODERATOR)
+        if (!isModerator) {
+            throw IllegalAccessException("Только модератор может редактировать команду")
+        }
+
+        val team = teamRepository.findById(teamId)
+            .orElseThrow { IllegalArgumentException("Команда не найдена: $teamId") }
+
+        team.name = newName
+        team.chatId = newChatId
+        val saved = teamRepository.save(team)
+
+        return saved.toDto()
+    }
+
+
 
 }

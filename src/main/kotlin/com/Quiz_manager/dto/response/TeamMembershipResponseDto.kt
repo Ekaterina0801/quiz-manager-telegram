@@ -6,7 +6,7 @@ import jakarta.persistence.Enumerated
 
 data class TeamMembershipResponseDto (
     val id: Long? = null,
-    val userId: Long,
+    val user: UserResponseDto,
     val teamId: Long,
     @Enumerated(EnumType.STRING)
     var role: Role = Role.USER
