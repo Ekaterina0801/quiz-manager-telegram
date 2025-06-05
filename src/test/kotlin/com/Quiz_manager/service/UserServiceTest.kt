@@ -67,10 +67,7 @@ class UserServiceTest {
         val user = User(id = 1L, firstName = "Ivan", lastName = "Ivanov", username = "testUser", telegramId = "123")
         whenever(userRepository.findByTelegramId(telegramId)).thenReturn(user)
 
-
         val result = userService.findOrCreateUser(telegramId)
-
-
         assertEquals(user, result)
         verify(userRepository).findByTelegramId(telegramId)
         verifyNoInteractions(telegramService)
