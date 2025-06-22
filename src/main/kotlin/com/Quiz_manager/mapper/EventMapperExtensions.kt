@@ -15,10 +15,10 @@ fun EventCreationDto.toEntity(team: Team): Event {
     val imageUrl = CloudinaryServiceSingleton.cloudinaryService?.let { imageFile.uploadImageIfPresent(cloudinaryService = it) }
 
     return Event(
-        name = this.name,
-        isRegistrationOpen = this.isRegistrationOpen,
-        dateTime = this.dateTime,
-        location = this.location,
+        name = this.name!!,
+        isRegistrationOpen = this.isRegistrationOpen!!,
+        dateTime = this.dateTime!!,
+        location = this.location!!,
         description = this.description,
         posterUrl = imageUrl,
         linkToAlbum = this.linkToAlbum,

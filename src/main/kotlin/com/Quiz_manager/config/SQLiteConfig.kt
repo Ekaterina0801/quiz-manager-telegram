@@ -13,6 +13,7 @@ class SQLiteConfig {
         return DataSourceBuilder.create()
             .driverClassName("org.sqlite.JDBC")
             .url("jdbc:sqlite:quiz-manager.db")
+            //.url("jdbc:sqlite:/data/quiz-manager.db")
             .build()
     }
 }

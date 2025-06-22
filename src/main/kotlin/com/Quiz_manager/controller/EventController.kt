@@ -71,7 +71,8 @@ class EventController(private val eventService: EventService) {
     fun createEvent(@ModelAttribute eventRequest: EventCreationDto): ResponseEntity<Any> =
         try {
             val created = eventService.createEvent(eventRequest)
-            ResponseEntity.ok(created)
+            ResponseEntity.ok(mapOf("message" to "ok"))
+
         } catch (ex: AccessDeniedException) {
             ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.message)
         }
@@ -96,14 +97,18 @@ class EventController(private val eventService: EventService) {
     fun deleteEvent(
         @PathVariable eventId: Long,
         @RequestParam userId: Long
-    ): ResponseEntity<String> =
+    ): ResponseEntity<Map<String, String>> =
         try {
             eventService.deleteEvent(eventId, userId)
-            ResponseEntity.ok("Event with id $eventId was deleted")
+            ResponseEntity.ok(mapOf("message" to "Event with id $eventId was deleted"))
         } catch (ex: AccessDeniedException) {
-            ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.message!!)
+            ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(mapOf("error" to (ex.message ?: "Доступ запрещён")))
         } catch (ex: NoSuchElementException) {
-            ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.message!!)
+            ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(mapOf("error" to (ex.message ?: "Событие не найдено")))
         }
 
     @PostMapping("/{eventId}/register")
@@ -125,13 +130,18 @@ class EventController(private val eventService: EventService) {
         @PathVariable eventId: Long,
         @RequestParam registrationId: Long,
         @RequestParam userId: Long
-    ): ResponseEntity<String> =
+    ): ResponseEntity<Map<String, String>> =
         try {
             val msg = eventService.unregisterFromEvent(eventId, registrationId, userId)
-            ResponseEntity.ok(msg)
+            ResponseEntity.ok(mapOf("message" to msg))
         } catch (ex: AccessDeniedException) {
-            ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.message)
+            ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(mapOf("error" to (ex.message ?: "Доступ запрещён")))
         } catch (ex: IllegalArgumentException) {
-            ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.message)
+            ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(mapOf("error" to (ex.message ?: "Регистрация не найдена")))
         }
+
 }

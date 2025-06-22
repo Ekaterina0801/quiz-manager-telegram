@@ -55,18 +55,18 @@ class EventService(
 
     @Transactional
     fun createEvent(eventData: EventCreationDto): Event {
-        userService.isUserModerator(eventData.userId, eventData.teamId)
+        userService.isUserModerator(eventData.userId!!, eventData.teamId!!)
         val imageUrl = uploadImageIfPresent(eventData.imageFile)
-        val team = teamRepository.findById(eventData.teamId).orElse(null)
+        val team = teamRepository.findById(eventData.teamId!!).orElse(null)
         val event = Event(
             id = null,
-            name = eventData.name,
+            name = eventData.name!!,
             description = eventData.description,
-            dateTime = eventData.dateTime,
+            dateTime = eventData.dateTime!!,
             posterUrl = imageUrl,
             linkToAlbum = null,
             teamResult = null,
-            location = eventData.location,
+            location = eventData.location!!,
             team = team,
             isRegistrationOpen = true,
             isHidden = false,
@@ -142,19 +142,19 @@ class EventService(
     @Transactional
     fun updateEvent(eventId: Long, updatedEventData: EventCreationDto): Event {
         val event = eventRepository.findById(eventId).orElseThrow { Exception("Event not found") }
-        userService.isUserModerator(updatedEventData.userId, event.team.id)
+        userService.isUserModerator(updatedEventData.userId!!, event.team.id)
 
         val imageUrl = uploadImageIfPresent(updatedEventData.imageFile) ?: event.posterUrl
 
         val updatedEvent = event.copy(
-            name = updatedEventData.name,
+            name = updatedEventData.name!!,
             description = updatedEventData.description,
-            dateTime = updatedEventData.dateTime,
+            dateTime = updatedEventData.dateTime!!,
             posterUrl = imageUrl,
             linkToAlbum = updatedEventData.linkToAlbum,
             teamResult = updatedEventData.teamResult,
-            location = updatedEventData.location,
-            isRegistrationOpen = updatedEventData.isRegistrationOpen,
+            location = updatedEventData.location!!,
+            isRegistrationOpen = updatedEventData.isRegistrationOpen!!,
             price = updatedEventData.price
 
         )
