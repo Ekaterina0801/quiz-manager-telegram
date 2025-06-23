@@ -24,7 +24,7 @@ class EventController(private val eventService: EventService) {
     fun getEvents(
         @RequestParam teamId: Long,
         @RequestParam(defaultValue = "0") page: Int,
-        @RequestParam(defaultValue = "10") size: Int,
+        @RequestParam(defaultValue = "100") size: Int,
         @RequestParam(defaultValue = "dateTime,desc") sort: String,
         @RequestParam(required = false) search: String?
     ): ResponseEntity<List<EventResponseDto>> {
