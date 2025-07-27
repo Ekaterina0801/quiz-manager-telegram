@@ -9,13 +9,15 @@ import java.util.*
 @AllArgsConstructor
 @Builder
 @ToString
+@RequiredArgsConstructor
 class UserDto {
-    private val id: UUID? = null
+    val id: Long? = null
 
-    private val username: String? = null
+    val username: String? = null
 
-    private val fullname: String? = null
+    val fullname: String? = null
 
-    private val email: String?=null
+    val email: String?=null
 
+    val password: String?=null;
 }

@@ -2,10 +2,9 @@ package com.Quiz_manager.controller
 
 import com.Quiz_manager.domain.Team
 import com.Quiz_manager.domain.User
-import com.Quiz_manager.dto.request.UserDto
 import com.Quiz_manager.dto.response.UserResponseDto
 import com.Quiz_manager.enums.Role
-import com.Quiz_manager.mapper.toDto
+import com.Quiz_manager.mapper.UserMapper
 import com.Quiz_manager.service.UserService
 import org.springframework.http.HttpStatus
 import org.springframework.http.ResponseEntity
@@ -16,7 +15,7 @@ import java.security.Principal
 @RestController
 @RequestMapping("/api/users")
 class UserController(
-    private val userService: UserService
+    private val userService: UserService, private val userMapper: UserMapper
 ) {
 
 
@@ -24,7 +23,7 @@ class UserController(
     @GetMapping("/me")
     fun getCurrentUser(principal: Principal?): ResponseEntity<UserResponseDto> {
         val user = userService.getCurrentUser(principal)
-        return ResponseEntity.ok(user.toDto())
+        return ResponseEntity.ok(userMapper.toDto(user))
     }
 
     /**

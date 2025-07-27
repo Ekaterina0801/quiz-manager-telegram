@@ -3,11 +3,9 @@ package com.Quiz_manager.controller
 import com.Quiz_manager.domain.*
 import com.Quiz_manager.dto.request.TeamNotificationSettingsCreationDto
 import com.Quiz_manager.dto.response.EventResponseDto
-import com.Quiz_manager.dto.response.TeamMembershipResponseDto
 import com.Quiz_manager.dto.response.TeamResponseDto
 import com.Quiz_manager.dto.response.UserResponseDto
 import com.Quiz_manager.enums.Role
-import com.Quiz_manager.mapper.toEntity
 import com.Quiz_manager.service.EventService
 import com.Quiz_manager.service.TeamService
 import com.Quiz_manager.service.UserService
@@ -15,6 +13,7 @@ import org.springframework.data.domain.Page
 import org.springframework.data.domain.Pageable
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+import java.security.Principal
 
 @RestController
 @RequestMapping("/api/teams")
@@ -161,9 +160,11 @@ class TeamController(private val teamService: TeamService, private val userServi
     fun getAllEventsByTeamId(
         @PathVariable teamId: Long,
         pageable: Pageable,
-        @RequestParam(required = false) search: String?
+        @RequestParam(required = false) search: String?,
+        principal: Principal
     ): ResponseEntity<Page<EventResponseDto>> {
-        val page = eventService.getEventsByTeam(teamId, pageable, search)
+        val currentUser = userService.getCurrentUser(principal)
+        val page = eventService.getEventsByTeam(teamId, pageable, search, currentUser.id)
         return ResponseEntity.ok(page)
     }
 

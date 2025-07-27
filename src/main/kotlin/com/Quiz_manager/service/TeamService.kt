@@ -8,8 +8,11 @@ import com.Quiz_manager.dto.request.TeamNotificationSettingsCreationDto
 import com.Quiz_manager.dto.response.TeamResponseDto
 import com.Quiz_manager.dto.response.UserResponseDto
 import com.Quiz_manager.enums.Role
-import com.Quiz_manager.mapper.toDto
-import com.Quiz_manager.mapper.toEntity
+import com.Quiz_manager.mapper.TeamMapper
+import com.Quiz_manager.mapper.TeamMembershipMapper
+import com.Quiz_manager.mapper.TeamNotificationSettingsMapper
+import com.Quiz_manager.mapper.UserMapper
+
 import com.Quiz_manager.repository.*
 import jakarta.persistence.EntityNotFoundException
 import jakarta.transaction.Transactional
@@ -21,17 +24,19 @@ class TeamService(
     private val teamMembershipRepository: TeamMembershipRepository,
     private val teamNotificationSettingsRepository: TeamNotificationSettingsRepository,
     private val inviteCodeGeneratorService: InviteCodeGeneratorService,
-    private val userService: UserService, private val userRepository: UserRepository
+    private val userService: UserService,
+    private val teamMapper: TeamMapper,
+    private val teamNotificationSettingsMapper: TeamNotificationSettingsMapper,
+    private val teamMembershipMapper: TeamMembershipMapper, private val userMapper: UserMapper
 ) {
+
     @Transactional
     fun createTeam(teamName: String, chatId: String?, creatorUserId: Long): TeamResponseDto {
-        // 1) сгенерировать уникальный inviteCode
         var inviteCode: String
         do {
             inviteCode = inviteCodeGeneratorService.generateInviteCode()
         } while (teamRepository.existsByInviteCode(inviteCode))
 
-        // 2) сохранить команду
         val team = Team(
             id = 0L,
             name = teamName,
@@ -40,7 +45,6 @@ class TeamService(
         )
         val savedTeam = teamRepository.save(team)
 
-        // 3) создать настройки уведомлений по умолчанию
         val defaultSettings = TeamNotificationSettings(
             team = savedTeam,
             registrationNotificationEnabled = true,
@@ -50,7 +54,6 @@ class TeamService(
         )
         teamNotificationSettingsRepository.save(defaultSettings)
 
-        // 4) добавить создателя в состав команды с ролью MODERATOR
         val creator = userService.getUserById(creatorUserId)
         val membership = TeamMembership(
             team = savedTeam,
@@ -59,28 +62,20 @@ class TeamService(
         )
         teamMembershipRepository.save(membership)
 
-        return savedTeam.toDto()
+        return teamMapper.toDto(savedTeam)
     }
 
-
-    /**
-     * Обновляет настройки уведомлений для команды.
-     *
-     * @param team команда
-     * @param updatedSettings новые настройки
-     * @return обновленные настройки
-     */
     @Transactional
-    fun updateTeamNotificationSettings(teamId: Long, updatedSettings: TeamNotificationSettings, currentUserId: Long): TeamNotificationSettingsCreationDto {
+    fun updateTeamNotificationSettings(
+        teamId: Long,
+        updatedSettings: TeamNotificationSettings,
+        currentUserId: Long
+    ): TeamNotificationSettingsCreationDto {
         val currentSettings = teamNotificationSettingsRepository.findByTeamId(teamId)
-            ?: throw IllegalArgumentException("Настройки уведомлений для этой команды не найдены")
-
+            ?: throw IllegalArgumentException("Настройки уведомлений не найдены")
 
         val isAdmin = teamMembershipRepository.existsByTeamIdAndUserIdAndRole(teamId, currentUserId, Role.ADMIN)
-        if (!isAdmin) {
-            throw IllegalAccessException("Только администратор команды может изменять настройки")
-        }
-
+        if (!isAdmin) throw IllegalAccessException("Только администратор может изменять настройки")
 
         currentSettings.apply {
             registrationNotificationEnabled = updatedSettings.registrationNotificationEnabled
@@ -89,158 +84,90 @@ class TeamService(
             registrationReminderHoursBeforeEvent = updatedSettings.registrationReminderHoursBeforeEvent
         }
 
-        return teamNotificationSettingsRepository.save(currentSettings).toDto()
+        return teamNotificationSettingsMapper.toDto(teamNotificationSettingsRepository.save(currentSettings))
     }
 
-
-    /**
-     * Получает настройки уведомлений для команды.
-     *
-     * @param team команда
-     * @return настройки уведомлений
-     */
-    @Transactional
     fun getTeamNotificationSettings(teamId: Long): TeamNotificationSettings {
         return teamNotificationSettingsRepository.findByTeamId(teamId)
-            ?: throw IllegalArgumentException("Настройки уведомлений для этой команды не найдены")
+            ?: throw IllegalArgumentException("Настройки уведомлений не найдены")
     }
 
-    /**
-     * Получает команду по ID.
-     *
-     * @param teamId ID команды
-     * @return команда
-     */
     fun getTeamById(teamId: Long): TeamResponseDto {
         val team = teamRepository.findById(teamId)
             .orElseThrow { IllegalArgumentException("Команда не найдена") }
-
-        return team.toDto()
+        return teamMapper.toDto(team)
     }
 
-    fun getTeamByChatId(chatId: String): TeamResponseDto? {
-        return teamRepository.findByChatId(chatId)?.toDto()
+    fun getTeamByCode(inviteCode: String): TeamResponseDto? {
+        return teamRepository.findByInviteCode(inviteCode)?.let { teamMapper.toDto(it) }
+    }
+
+    fun getTeams(): List<TeamResponseDto> {
+        return teamRepository.findAll().map { teamMapper.toDto(it) }
     }
 
     @Transactional
     fun deleteTeamById(teamId: Long) {
-        val team = teamRepository.findById(teamId).orElseThrow { EntityNotFoundException("Team not found") }
+        val team = teamRepository.findById(teamId)
+            .orElseThrow { EntityNotFoundException("Team not found") }
+
         team.teamMemberships.forEach { it.team = null }
         team.teamMemberships.clear()
-        //teamMembershipRepository.deleteAll(team.teamMemberships)
-
         teamRepository.delete(team)
     }
 
-
-
-
-    /**
-     * Получает команду по коду приглашения.
-     *
-     * @param inviteCode код приглашения команды
-     * @return команда или null, если команда не найдена
-     */
-    fun getTeamByCode(inviteCode: String): TeamResponseDto? {
-        return teamRepository.findByInviteCode(inviteCode)?.toDto()
-    }
-
-
-    fun getTeams(): List<TeamResponseDto>? {
-        return teamRepository.findAll().map { x->x.toDto() }
-    }
-
-
-    /**
-     * Добавляет пользователя в команду с указанной ролью.
-     *
-     * @param user пользователь
-     * @param team команда
-     * @param role роль пользователя в команде
-     * @return объект TeamMembership
-     */
     @Transactional
     fun addUserToTeam(userId: Long, teamId: Long, role: Role?): TeamMembership {
         val user = userService.getUserById(userId)
-        val team = getTeamById(teamId).toEntity()
-        val existingMembership = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
-        if (existingMembership != null) {
-            return existingMembership
-        }
-        val teamMembership: TeamMembership = if (role==null)
-            TeamMembership(user = user, team = team)
-        else
-            TeamMembership(user = user, team = team, role = role)
+        val team = teamRepository.findById(teamId)
+            .orElseThrow { IllegalArgumentException("Команда не найдена") }
+
+        val existing = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
+        if (existing != null) return existing
+
+        val teamMembership = TeamMembership(
+            user = user,
+            team = team,
+            role = role ?: Role.USER
+        )
         return teamMembershipRepository.save(teamMembership)
     }
 
-    /**
-     * Удаляет пользователя из команды.
-     *
-     * @param user пользователь
-     * @param team команда
-     */
     @Transactional
     fun removeUserFromTeam(userId: Long, teamId: Long) {
-        val removedCount = teamMembershipRepository.deleteByTeamIdAndUserId(teamId, userId)
-        if (removedCount == 0) {
-            throw IllegalArgumentException("Пользователь с ID $userId не состоит в команде $teamId")
-        }
+        val removed = teamMembershipRepository.deleteByTeamIdAndUserId(teamId, userId)
+        if (removed == 0) throw IllegalArgumentException("Пользователь не состоит в команде")
     }
 
-    /**
-     * Получает всех пользователей в команде.
-     *
-     * @param team команда
-     * @return список пользователей в команде
-     */
     fun getAllUsersInTeam(teamId: Long): List<UserResponseDto> {
-        return teamMembershipRepository.findByTeamId(teamId).map { it.user.toDto() }
+        return teamMembershipRepository.findByTeamId(teamId).map { userMapper.toDto(it.user) }
     }
 
-    /**
-     * Получает все команды, в которых состоит пользователь.
-     *
-     * @param user пользователь
-     * @return список команд, в которых состоит пользователь
-     */
     fun getAllTeamsByUser(userId: Long): List<TeamResponseDto> {
-        return teamMembershipRepository.findByUserId(userId).map { it.team!!.toDto() }
+        return teamMembershipRepository.findByUserId(userId)
+            .mapNotNull { it.team?.let { team -> teamMapper.toDto(team) } }
     }
 
     @Transactional
     fun renameTeam(teamId: Long, newName: String): TeamResponseDto {
         val team = teamRepository.findById(teamId)
-            .orElseThrow { IllegalArgumentException("Команда не найдена: $teamId") }
+            .orElseThrow { IllegalArgumentException("Команда не найдена") }
+
         team.name = newName
-        val saved = teamRepository.save(team)
-        return saved.toDto()
+        return teamMapper.toDto(teamRepository.save(team))
     }
 
     @Transactional
-    fun updateTeam(
-        teamId: Long,
-        newName: String,
-        newChatId: String?,
-        currentUserId: Long
-    ): TeamResponseDto {
-
+    fun updateTeam(teamId: Long, newName: String, newChatId: String?, currentUserId: Long): TeamResponseDto {
         val isModerator = teamMembershipRepository
             .existsByTeamIdAndUserIdAndRole(teamId, currentUserId, Role.MODERATOR)
-        if (!isModerator) {
-            throw IllegalAccessException("Только модератор может редактировать команду")
-        }
+        if (!isModerator) throw IllegalAccessException("Только модератор может редактировать команду")
 
         val team = teamRepository.findById(teamId)
-            .orElseThrow { IllegalArgumentException("Команда не найдена: $teamId") }
+            .orElseThrow { IllegalArgumentException("Команда не найдена") }
 
         team.name = newName
         team.chatId = newChatId
-        val saved = teamRepository.save(team)
-
-        return saved.toDto()
+        return teamMapper.toDto(teamRepository.save(team))
     }
-
-
-
 }

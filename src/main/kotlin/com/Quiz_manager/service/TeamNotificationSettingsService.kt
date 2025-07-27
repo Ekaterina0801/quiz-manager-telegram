@@ -1,8 +1,7 @@
 package com.Quiz_manager.service
 
 import com.Quiz_manager.dto.request.TeamNotificationSettingsCreationDto
-import com.Quiz_manager.mapper.toDto
-import com.Quiz_manager.mapper.toEntity
+import com.Quiz_manager.mapper.TeamNotificationSettingsMapper
 import com.Quiz_manager.repository.TeamNotificationSettingsRepository
 import com.Quiz_manager.repository.TeamRepository
 import jakarta.persistence.EntityNotFoundException
@@ -13,7 +12,7 @@ import org.springframework.stereotype.Service
 @Service
 class TeamNotificationSettingsService(
     private val teamNotificationSettingsRepository: TeamNotificationSettingsRepository,
-    private val teamRepository: TeamRepository
+    private val teamRepository: TeamRepository, private val teamNotificationSettingsMapper: TeamNotificationSettingsMapper
 ) {
 
     private val logger = LoggerFactory.getLogger(TeamNotificationSettingsService::class.java)
@@ -28,7 +27,7 @@ class TeamNotificationSettingsService(
         val settings = teamNotificationSettingsRepository.findByTeamId(teamId)
             ?: throw EntityNotFoundException("Настройки уведомлений не найдены для команды с id $teamId")
 
-        return settings.toDto()
+        return teamNotificationSettingsMapper.toDto(settings)
     }
 
     /**
@@ -44,9 +43,9 @@ class TeamNotificationSettingsService(
             unregisterNotificationEnabled = settingsDTO.unregisterNotificationEnabled
             eventReminderEnabled = settingsDTO.eventReminderEnabled
             registrationReminderHoursBeforeEvent = settingsDTO.registrationReminderHoursBeforeEvent
-        } ?: teamNotificationSettingsRepository.save(settingsDTO.toEntity(team))
+        } ?: teamNotificationSettingsRepository.save(teamNotificationSettingsMapper.toEntity(settingsDTO, team))
 
-        return updatedSettings.toDto()
+        return teamNotificationSettingsMapper.toDto(updatedSettings)
     }
 
     /**

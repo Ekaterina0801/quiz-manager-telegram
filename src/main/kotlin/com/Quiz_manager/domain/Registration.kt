@@ -1,6 +1,7 @@
 package com.Quiz_manager.domain
 
 import jakarta.persistence.*
+import org.hibernate.Hibernate
 import org.hibernate.proxy.HibernateProxy
 
 @Entity
@@ -19,21 +20,14 @@ data class Registration(
     val registrant: User,
 
 ) {
-    final override fun equals(other: Any?): Boolean {
+    override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (other == null) return false
-        val oEffectiveClass =
-            if (other is HibernateProxy) other.hibernateLazyInitializer.persistentClass else other.javaClass
-        val thisEffectiveClass =
-            if (this is HibernateProxy) this.hibernateLazyInitializer.persistentClass else this.javaClass
-        if (thisEffectiveClass != oEffectiveClass) return false
+        if (other == null || Hibernate.getClass(this) != Hibernate.getClass(other)) return false
         other as Registration
-
         return id != null && id == other.id
     }
 
-    final override fun hashCode(): Int =
-        if (this is HibernateProxy) this.hibernateLazyInitializer.persistentClass.hashCode() else javaClass.hashCode()
+    override fun hashCode(): Int = id?.hashCode() ?: 0
 
     @Override
     override fun toString(): String {

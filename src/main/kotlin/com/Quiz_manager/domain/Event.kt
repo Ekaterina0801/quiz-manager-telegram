@@ -7,25 +7,27 @@ import java.time.LocalDateTime
 @Entity
 data class Event(
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Long? = null,
+    var id: Long? = null,
     @Column(columnDefinition = "TEXT COLLATE NOCASE")
-    val name: String,
-    val dateTime: LocalDateTime,
-    val location: String,
-    val description: String?,
-    val posterUrl: String?,
-    val linkToAlbum: String?,
-    val teamResult: String?,
-    val isRegistrationOpen: Boolean,
-    val isHidden: Boolean,
-    val price: String?,
+    var name: String,
+    var dateTime: LocalDateTime,
+    var location: String,
+    var description: String?,
+    var posterUrl: String?,
+    var linkToAlbum: String?,
+    var teamResult: String?,
+    @Column(name="isRegistrationOpen")
+    var registrationOpen: Boolean,
+    @Column(name="isHidden")
+    var hidden: Boolean,
+    var price: String?,
 
     @ManyToOne
     @JoinColumn(name = "team_id", nullable = false)
-    val team: Team,
+    var team: Team,
 
     @OneToMany(mappedBy = "event", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
-    val registrations: MutableList<Registration> = mutableListOf(),
+    var registrations: MutableList<Registration> = mutableListOf(),
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

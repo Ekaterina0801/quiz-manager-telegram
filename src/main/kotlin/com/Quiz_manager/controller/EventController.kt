@@ -5,6 +5,7 @@ import com.Quiz_manager.dto.RegistrationData
 import com.Quiz_manager.dto.request.EventCreationDto
 import com.Quiz_manager.dto.response.EventResponseDto
 import com.Quiz_manager.service.EventService
+import com.Quiz_manager.service.UserService
 import jakarta.validation.Valid
 import org.springframework.data.domain.Page
 import org.springframework.data.domain.PageRequest
@@ -14,10 +15,11 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 import java.net.http.HttpHeaders
+import java.security.Principal
 
 @RestController
 @RequestMapping("/api/events")
-class EventController(private val eventService: EventService) {
+class EventController(private val eventService: EventService, private val userService: UserService) {
 
 
     @GetMapping
@@ -26,8 +28,10 @@ class EventController(private val eventService: EventService) {
         @RequestParam(defaultValue = "0") page: Int,
         @RequestParam(defaultValue = "100") size: Int,
         @RequestParam(defaultValue = "dateTime,desc") sort: String,
-        @RequestParam(required = false) search: String?
+        @RequestParam(required = false) search: String?,
+        principal: Principal
     ): ResponseEntity<List<EventResponseDto>> {
+        val currentUser = userService.getCurrentUser(principal)
         val (sortProp, sortDir) = run {
             val parts = sort.split(",")
             val prop = parts[0]
@@ -43,7 +47,8 @@ class EventController(private val eventService: EventService) {
         val dtoPage: Page<EventResponseDto> = eventService.getEventsByTeam(
             teamId  = teamId,
             pageable = pageRequest,
-            search  = search
+            search  = search,
+            currentUserId=currentUser.id
         )
 
         val content       = dtoPage.content

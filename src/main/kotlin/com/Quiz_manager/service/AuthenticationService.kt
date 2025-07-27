@@ -1,8 +1,8 @@
 package com.Quiz_manager.service
 
-import SignInRequest
-import SignUpRequest
 import com.Quiz_manager.domain.User
+import com.Quiz_manager.dto.request.SignInRequest
+import com.Quiz_manager.dto.request.SignUpRequest
 import com.Quiz_manager.dto.response.JwtAuthenticationResponse
 import com.Quiz_manager.enums.Role
 import com.Quiz_manager.service.UserService
