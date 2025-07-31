@@ -90,6 +90,11 @@ class SecurityConfig(
                     .requestMatchers(HttpMethod.GET, "/**").permitAll()
                     .requestMatchers(HttpMethod.POST, "/api/auth/sign-up").permitAll()
                     .requestMatchers("/api/auth/sign-up", "/api/auth/sign-in", "/api/auth/refresh").permitAll()
+                    .requestMatchers(
+                        HttpMethod.POST,
+                        "/api/auth/forgot-password",
+                        "/api/auth/reset-password"
+                    ).permitAll()
                     .anyRequest().permitAll()
             }
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }

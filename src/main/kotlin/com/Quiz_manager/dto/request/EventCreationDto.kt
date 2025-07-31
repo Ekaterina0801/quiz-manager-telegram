@@ -21,5 +21,6 @@ data class EventCreationDto(
     var isRegistrationOpen: Boolean? = null,
     var imageFile: MultipartFile? = null,
     var isHidden: Boolean = false,
-    var price: String? = null
+    var price: String? = null,
+    var limitOfRegistrations: Long? = null
 )

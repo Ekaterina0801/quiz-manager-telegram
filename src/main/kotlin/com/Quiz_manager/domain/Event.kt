@@ -21,6 +21,8 @@ data class Event(
     @Column(name="isHidden")
     var hidden: Boolean,
     var price: String?,
+    @Column(name="limitOfRegistrations")
+    var limitOfRegistrations: Long? = null,
 
     @ManyToOne
     @JoinColumn(name = "team_id", nullable = false)

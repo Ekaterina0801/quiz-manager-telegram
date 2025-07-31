@@ -18,6 +18,7 @@ import org.springframework.security.access.AccessDeniedException
 import org.springframework.stereotype.Service
 import org.springframework.web.multipart.MultipartFile
 import java.io.File
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 @Service
 class EventService(
@@ -144,9 +145,11 @@ class EventService(
         when (type) {
             "registration" -> if (settings.registrationNotificationEnabled)
                 sendRegistrationNotification(event, participant ?: "", chatId, true)
+
             "unregistration" -> if (settings.unregisterNotificationEnabled)
                 sendRegistrationNotification(event, participant ?: "", chatId, false)
-            "summary" -> sendEventSummary(event, chatId)
+
+            "summary" -> sendEventSummary(event.id!!)
         }
     }
 
@@ -167,20 +170,67 @@ class EventService(
         telegramService.sendMessageToChat(chatId, text)
     }
 
-    fun sendEventSummary(event: Event, chatId: String) {
-        val date = event.dateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
-        val participants = event.registrations
-            .joinToString("\n") { "- ${it.fullName}" }
-            .ifBlank { "— нет зарегистрированных участников" }
+    fun sendEventSummary(eventId: Long) {
+        val event = eventRepository.findById(eventId).orElse(null) ?: return
+        val chatId = event.team.chatId ?: return
 
-        val text = buildString {
-            append("📌 Что: ${event.name}\n")
-            append("📍 Где: ${event.location}\n\n")
-            append("📅 Когда: $date\n")
-            append("💰 Стоимость: ${event.price} руб.\n")
-            append("👥 Участники:\n$participants\n")
+        val formattedDate = formatEventDate(event.dateTime)
+
+        val participantsList = formatParticipants(event.registrations)
+
+        val summaryText = buildEventSummaryText(
+            event,
+            formattedDate,
+            participantsList,
+            event.limitOfRegistrations?.toInt()
+        )
+
+        telegramService.sendMessageToChat(chatId, summaryText)
+    }
+
+    private fun formatEventDate(dateTime: LocalDateTime): String =
+        dateTime.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
+
+
+    private fun formatParticipants(registrations: List<Registration>): List<String> =
+        if (registrations.isEmpty()) {
+            listOf("— нет зарегистрированных участников")
+        } else {
+            registrations.map { it.fullName }
         }
 
-        telegramService.sendMessageToChat(chatId, text)
+    private fun buildEventSummaryText(
+        event: Event,
+        formattedDate: String,
+        participants: List<String>,
+        limit: Int? = null
+    ): String {
+        return buildString {
+            appendLine("📌 Что: ${event.name}")
+            appendLine("📍 Где: ${event.location}")
+            appendLine()
+            appendLine("📅 Когда: $formattedDate")
+            appendLine("💰 Стоимость: ${event.price} ₽")
+            appendLine("👥 Участники:")
+            appendLine()
+
+            val mainList = if (limit != null) participants.take(limit) else participants
+            val reserveList = if (limit != null) participants.drop(limit) else emptyList()
+
+
+            mainList.forEachIndexed { index, name ->
+                appendLine("${index + 1}. $name")
+            }
+
+            if (reserveList.isNotEmpty()) {
+                appendLine()
+                appendLine("🔄 Резерв:")
+                appendLine()
+                reserveList.forEachIndexed { idx, name ->
+                    appendLine("${mainList.size + idx + 1}. $name")
+                }
+            }
+        }
     }
+
 }

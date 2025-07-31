@@ -149,4 +149,25 @@ class EventController(private val eventService: EventService, private val userSe
                 .body(mapOf("error" to (ex.message ?: "Регистрация не найдена")))
         }
 
+    @GetMapping("/{eventId}/summary")
+    fun sendSummary(@PathVariable eventId: Long): ResponseEntity<Map<String, String>> {
+        return try {
+            eventService.sendEventSummary(eventId)
+            ResponseEntity.ok(mapOf("message" to "Event summary sent successfully"))
+        } catch (ex: NoSuchElementException) {
+            ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(mapOf("error" to "Event not found with id: $eventId"))
+        } catch (ex: IllegalStateException) {
+            ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(mapOf("error" to "Cannot send summary: ${ex.message}"))
+        } catch (ex: Exception) {
+            ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(mapOf("error" to "Failed to send event summary: ${ex.message}"))
+        }
+    }
+
+
 }

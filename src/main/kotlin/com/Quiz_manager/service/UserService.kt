@@ -32,6 +32,10 @@ class UserService(
         return user
     }
 
+    fun updateUser(user: User): User {
+        return userRepository.save(user)
+    }
+
     fun getCurrentUser(principal: Principal?): User {
         val username = principal?.name
             ?: throw UsernameNotFoundException("Нет аутентифицированного пользователя")

@@ -22,6 +22,7 @@ interface EventMapper {
     @Mapping(source = "dto.registrationOpen", target = "registrationOpen")
     @Mapping(source = "dto.hidden", target = "hidden")
     @Mapping(source = "dto.price", target = "price")
+    @Mapping(source="dto.limitOfRegistrations", target = "limitOfRegistrations")
     @Mapping(source = "team", target = "team")
     @Mapping(target = "posterUrl", ignore = true)
     @Mapping(target = "registrations", expression = "java(new java.util.ArrayList<>())")
@@ -35,13 +36,13 @@ interface EventMapper {
     @Mapping(source = "dto.linkToAlbum", target = "linkToAlbum")
     @Mapping(source = "dto.teamResult", target = "teamResult")
     @Mapping(source = "dto.location", target = "location")
+    @Mapping(source="dto.limitOfRegistrations", target = "limitOfRegistrations")
     @Mapping(source = "dto.registrationOpen", target = "registrationOpen")
     @Mapping(source = "dto.hidden", target = "hidden")
     @Mapping(source = "dto.price", target = "price")
     @Mapping(target = "posterUrl", expression = "java(posterUrl)")
     fun updateEventFromDto(dto: EventCreationDto, @MappingTarget event: Event, posterUrl: String?): Event
 
-    // Маппинг сущности в DTO
     @Mapping(source = "event.id", target = "id")
     @Mapping(source = "event.name", target = "name")
     @Mapping(source = "event.dateTime", target = "dateTime")
@@ -50,6 +51,7 @@ interface EventMapper {
     @Mapping(source = "event.posterUrl", target = "posterUrl")
     @Mapping(source = "event.linkToAlbum", target = "linkToAlbum")
     @Mapping(source = "event.teamResult", target = "teamResult")
+    @Mapping(source="event.limitOfRegistrations", target = "limitOfRegistrations")
     @Mapping(source = "event.registrationOpen", target = "registrationOpen")
     @Mapping(source = "event.team.id", target = "teamId")
     @Mapping(source = "event.price", target = "price")

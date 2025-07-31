@@ -18,5 +18,6 @@ data class EventResponseDto (
     var isRegistered: Boolean = false,
     @JsonProperty("isHidden")
     val hidden: Boolean = false,
+    val limitOfRegistrations: Long? = null,
     val registrations: MutableList<RegistrationResponseDto> = mutableListOf(),
 )
