@@ -48,7 +48,10 @@ class EventService(
         val page = if (search.isNullOrBlank()) {
             eventRepository.findByTeamId(teamId, pageable)
         } else {
-            eventRepository.searchByNameIgnoreCaseNative(teamId, search, pageable)
+            val searchWithWildcards = "%${search.trim().lowercase()}%"
+
+            eventRepository.searchByNameIgnoreCaseNative(teamId, searchWithWildcards, pageable)
+            //eventRepository.searchByNameIgnoreCaseNative(teamId, search, pageable)
         }
 
         return page.map { event ->

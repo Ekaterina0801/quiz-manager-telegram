@@ -24,14 +24,14 @@ interface EventRepository : JpaRepository<Event, Long> {
       SELECT * 
       FROM event 
       WHERE team_id = :teamId
-        AND name LIKE '%' || :search || '%' COLLATE NOCASE
-      """,
+        AND name LIKE :search COLLATE NOCASE
+    """,
         countQuery = """
       SELECT count(*) 
       FROM event 
       WHERE team_id = :teamId
-        AND name LIKE '%' || :search || '%' COLLATE NOCASE
-      """,
+        AND name LIKE :search COLLATE NOCASE
+    """,
         nativeQuery = true
     )
     fun searchByNameIgnoreCaseNative(
@@ -39,6 +39,10 @@ interface EventRepository : JpaRepository<Event, Long> {
         @Param("search") search: String,
         pageable: Pageable
     ): Page<Event>
+
+
+
+
 
     fun findByNameIgnoreCase(name: String): List<Event>
 
